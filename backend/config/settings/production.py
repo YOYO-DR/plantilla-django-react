@@ -74,6 +74,9 @@ STORAGES = {
     },
 }
 
+STATIC_URL = "/api/static/"
+MEDIA_URL = "/api/media/"
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
