@@ -6,7 +6,7 @@ volumes:
 services:
   django: &django
     build:
-      context: .
+      context: ./backend
       dockerfile: ./compose/production/django/Dockerfile
     image: plantilla_django_react_production_django
     volumes:
@@ -30,7 +30,7 @@ services:
 
   pgbouncer:
     build:
-      context: .
+      context: ./backend
       dockerfile: ./compose/production/pgbouncer/Dockerfile
     image: plantilla_django_react_production_pgbouncer
     restart: unless-stopped
@@ -56,7 +56,7 @@ services:
 
   traefik:
     build:
-      context: .
+      context: ./backend
       dockerfile: ./compose/production/traefik/Dockerfile
     image: plantilla_django_react_production_traefik
     depends_on:
@@ -140,7 +140,7 @@ services:
 
   nginx:
     build:
-      context: .
+      context: ./backend
       dockerfile: ./compose/production/nginx/Dockerfile
     image: plantilla_django_react_production_nginx
     depends_on:
