@@ -14,8 +14,7 @@ services:
       - production_django_logs:/app/logs
     restart: unless-stopped
     env_file:
-      - ./backend/.envs/.production/.django
-      - ./backend/.envs/.production/.postgres
+      - ./.env
     command: /start
     deploy:
       resources:
@@ -36,7 +35,7 @@ services:
     image: plantilla_django_react_production_pgbouncer
     restart: unless-stopped
     env_file:
-      - ./backend/.envs/.production/.postgres
+      - ./.env
     networks:
       - dokploy-network
       - default
@@ -66,7 +65,7 @@ services:
       - production_traefik:/etc/traefik/acme
     restart: unless-stopped
     env_file:
-      - ./backend/.envs/.production/.django
+      - ./.env
     networks:
       - dokploy-network
       - default
@@ -86,8 +85,7 @@ services:
     ports: []
     restart: unless-stopped
     env_file:
-      - ./backend/.envs/.production/.django
-      - ./backend/.envs/.production/.postgres
+      - ./.env
     depends_on:
       - pgbouncer
       - redis
@@ -112,8 +110,7 @@ services:
       - production_django_media:/app/apps/media
     command: /start-celerybeat
     env_file:
-      - ./backend/.envs/.production/.django
-      - ./backend/.envs/.production/.postgres
+      - ./.env
     depends_on:
       - pgbouncer
       - redis
@@ -134,8 +131,7 @@ services:
     image: plantilla_django_react_production_flower
     command: /start-flower
     env_file:
-      - ./backend/.envs/.production/.django
-      - ./backend/.envs/.production/.postgres
+      - ./.env
     depends_on:
       - celeryworker
     networks:
