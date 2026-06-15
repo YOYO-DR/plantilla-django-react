@@ -4,11 +4,11 @@ import API_ENDPOINTS from './apiEndpoints'
 
 /**
  * Inicializa el apiClient con la config del proyecto.
+ * La baseURL se toma por defecto de VITE_API_URL en apiClient.js.
  * Llamar UNA vez en el entry point (main.jsx) antes de cualquier request.
  */
 export function initApiClient() {
   setConfig({
-    baseURL: import.meta.env.VITE_API_URL,
     refreshEndpoint: API_ENDPOINTS.auth.refresh,
     loginEndpoint: API_ENDPOINTS.auth.login,
     onUnauthorized: () => {

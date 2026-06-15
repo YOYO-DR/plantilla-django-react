@@ -4,13 +4,17 @@
  * Diseñado para ser reusable entre proyectos:
  * - Sin dependencias externas (usa fetch nativo).
  * - Sin acoplarse a un store específico (usa callbacks inyectables).
- * - Configurable via setConfig().
+ * - La baseURL se toma por defecto de `VITE_API_URL` (build-time, Vite).
+ *   Se acepta cualquier forma:
+ *     '' | '/api'                  → relativo al origen actual
+ *     'https://api.example.com'    → absoluto
+ *     'api.example.com'            → se le antepone el protocolo actual
+ *   Se puede sobreescribir en runtime via setConfig({ baseURL }).
  *
  * Uso:
  *   import { api, setConfig } from '@/api/apiClient'
  *
  *   setConfig({
- *     baseURL: import.meta.env.VITE_API_URL,
  *     refreshEndpoint: '/api/auth/token/refresh',
  *     loginEndpoint: '/api/auth/token',
  *     onUnauthorized: () => { /* logout, redirect *\/ },
@@ -32,7 +36,7 @@
  */
 
 let config = {
-  baseURL: '',
+  baseURL: import.meta.env.VITE_API_URL || '',
   refreshEndpoint: '/api/auth/token/refresh',
   loginEndpoint: '/api/auth/token',
   onUnauthorized: null,
@@ -58,9 +62,18 @@ export function clearAccessToken() {
   if (config.onTokenChange) config.onTokenChange(null)
 }
 
+function normalizeBaseURL(baseURL) {
+  if (!baseURL) return ''
+  if (baseURL.startsWith('//')) return `${typeof window !== 'undefined' ? window.location.protocol : 'https:'}${baseURL}`
+  if (/^https?:\/\//i.test(baseURL)) return baseURL
+  if (baseURL.startsWith('/')) return baseURL
+  const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:'
+  return `${protocol}//${baseURL}`
+}
+
 function buildUrl(path) {
   if (path.startsWith('http')) return path
-  return `${config.baseURL}${path}`
+  return `${normalizeBaseURL(config.baseURL)}${path}`
 }
 
 async function parseResponse(response) {
