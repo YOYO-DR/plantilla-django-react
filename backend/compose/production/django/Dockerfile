@@ -82,6 +82,7 @@ RUN mkdir -p ${APP_HOME}/apps/media \
 
 # make django owner of the WORKDIR directory as well.
 RUN chown django:django ${APP_HOME}
+RUN chown -R django:django ${APP_HOME}/logs
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
