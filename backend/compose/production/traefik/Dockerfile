@@ -1,7 +1,7 @@
 FROM alpine:3.20
 
 # Instala traefik y envsubst (parte del paquete gettext)
-RUN apk add --no-cache traefik gettext
+RUN apk add --no-cache traefik gettext curl
 
 # Crea carpeta para certificados
 RUN mkdir -p /etc/traefik/acme \
