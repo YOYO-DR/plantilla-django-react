@@ -4,7 +4,7 @@ volumes:
   production_django_logs: {}
 
 services:
-  django_plantilla_django_react: &django
+  django_plantilla: &django
     build:
       context: ./backend
       dockerfile: ./compose/production/django/Dockerfile
@@ -27,10 +27,8 @@ services:
     networks:
       - dokploy-network
       - default
-    labels:
-      - "traefik.docker.network=dokploy-network"
 
-  pgbouncer:
+  pgbouncer_plantilla:
     build:
       context: ./backend
       dockerfile: ./compose/production/pgbouncer/Dockerfile
@@ -50,19 +48,19 @@ services:
           cpus: ${PGBOUNCER_CPU:-1}
           memory: ${PGBOUNCER_RAM:-1g}
 
-  redis:
+  redis_plantilla:
     image: docker.io/redis:7.2
     networks:
       - dokploy-network
       - default
 
-  traefik:
+  traefik_plantilla:
     build:
       context: ./backend
       dockerfile: ./compose/production/traefik/Dockerfile
     image: plantilla_django_react_production_traefik
     depends_on:
-      - django_plantilla_django_react
+      - django_plantilla
     volumes:
       - production_traefik:/etc/traefik/acme
     restart: unless-stopped
@@ -80,7 +78,7 @@ services:
           cpus: ${TRAEFIK_CPU:-1}
           memory: ${TRAEFIK_RAM:-1g}
 
-  celeryworker:
+  celeryworker_plantilla:
     <<: *django
     image: plantilla_django_react_production_celeryworker
     command: /start-celeryworker
@@ -89,8 +87,8 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - pgbouncer
-      - redis
+      - pgbouncer_plantilla
+      - redis_plantilla
     deploy:
       replicas: ${CANT_WORKERS_CELERY:-2}
       resources:
@@ -104,7 +102,7 @@ services:
       - dokploy-network
       - default
 
-  celerybeat:
+  celerybeat_plantilla:
     <<: *django
     image: plantilla_django_react_production_celerybeat
     restart: unless-stopped
@@ -114,8 +112,8 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - pgbouncer
-      - redis
+      - pgbouncer_plantilla
+      - redis_plantilla
     deploy:
       resources:
         reservations:
@@ -128,25 +126,25 @@ services:
       - dokploy-network
       - default
 
-  flower:
+  flower_plantilla:
     <<: *django
     image: plantilla_django_react_production_flower
     command: /start-flower
     env_file:
       - ./.env
     depends_on:
-      - celeryworker
+      - celeryworker_plantilla
     networks:
       - dokploy-network
       - default
 
-  nginx:
+  nginx_plantilla:
     build:
       context: ./backend
       dockerfile: ./compose/production/nginx/Dockerfile
     image: plantilla_django_react_production_nginx
     depends_on:
-      - django_plantilla_django_react
+      - django_plantilla
     volumes:
       - production_django_media:/usr/share/nginx/media:ro
     restart: unless-stopped
@@ -162,7 +160,7 @@ services:
       - dokploy-network
       - default
 
-  frontend:
+  frontend_plantilla:
     build:
       context: ./frontend
       dockerfile: ./compose/production/Dockerfile
@@ -171,7 +169,7 @@ services:
     image: plantilla_django_react_production_frontend
     restart: unless-stopped
     depends_on:
-      - django_plantilla_django_react
+      - django_plantilla
     deploy:
       resources:
         reservations:
