@@ -1,4 +1,5 @@
 [databases]
+# Alias que usará PgBouncer para conectarse al Postgres real
 ${POSTGRES_DB} = host=${POSTGRES_HOST} port=${POSTGRES_PORT} dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}
 
 [pgbouncer]

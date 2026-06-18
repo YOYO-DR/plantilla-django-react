@@ -27,10 +27,6 @@ DATABASE_URL=postgres://${PGB_POSTGRES_USER}:${PGB_POSTGRES_PASSWORD}@${PGB_POST
 DJANGO_SERVER_EMAIL=
 
 
-# django-allauth
-# ------------------------------------------------------------------------------
-DJANGO_ACCOUNT_ALLOW_REGISTRATION=True
-
 # Gunicorn
 # ------------------------------------------------------------------------------
 WEB_CONCURRENCY=4
