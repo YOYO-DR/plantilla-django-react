@@ -24,9 +24,7 @@ services:
         limits:
           cpus: ${DJANGO_CPU:-1}
           memory: ${DJANGO_RAM:-1g}
-    networks:
-      - dokploy-network
-      - default
+    
 
   pgbouncer:
     build:
@@ -36,9 +34,7 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env
-    networks:
-      - dokploy-network
-      - default
+    
     deploy:
       resources:
         reservations:
@@ -50,9 +46,7 @@ services:
 
   redis:
     image: docker.io/redis:7.2
-    networks:
-      - dokploy-network
-      - default
+    
 
   traefik:
     build:
@@ -66,9 +60,7 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env
-    networks:
-      - dokploy-network
-      - default
+    
     deploy:
       resources:
         reservations:
@@ -98,9 +90,7 @@ services:
         limits:
           cpus: ${CELERYWORKER_CPU:-1}
           memory: ${CELERYWORKER_RAM:-1g}
-    networks:
-      - dokploy-network
-      - default
+    
 
   celerybeat:
     <<: *django
@@ -122,9 +112,7 @@ services:
         limits:
           cpus: ${CELERYBEAT_CPU:-1}
           memory: ${CELERYBEAT_RAM:-1g}
-    networks:
-      - dokploy-network
-      - default
+    
 
   flower:
     <<: *django
@@ -134,9 +122,7 @@ services:
       - ./.env
     depends_on:
       - celeryworker
-    networks:
-      - dokploy-network
-      - default
+    
 
   nginx:
     build:
@@ -156,9 +142,7 @@ services:
         limits:
           cpus: ${NGINX_CPU:-1}
           memory: ${NGINX_RAM:-1g}
-    networks:
-      - dokploy-network
-      - default
+    
 
   frontend:
     build:
@@ -178,10 +162,4 @@ services:
         limits:
           cpus: ${FRONTEND_CPU:-1}
           memory: ${FRONTEND_RAM:-1g}
-    networks:
-      - dokploy-network
-      - default
-
-networks:
-  dokploy-network:
-    external: true
+    
