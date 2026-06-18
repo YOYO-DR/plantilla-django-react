@@ -4,7 +4,7 @@ volumes:
   production_django_logs: {}
 
 services:
-  django: &django
+  django_plantilla_django_react: &django
     build:
       context: ./backend
       dockerfile: ./compose/production/django/Dockerfile
@@ -62,7 +62,7 @@ services:
       dockerfile: ./compose/production/traefik/Dockerfile
     image: plantilla_django_react_production_traefik
     depends_on:
-      - django
+      - django_plantilla_django_react
     volumes:
       - production_traefik:/etc/traefik/acme
     restart: unless-stopped
@@ -146,7 +146,7 @@ services:
       dockerfile: ./compose/production/nginx/Dockerfile
     image: plantilla_django_react_production_nginx
     depends_on:
-      - django
+      - django_plantilla_django_react
     volumes:
       - production_django_media:/usr/share/nginx/media:ro
     restart: unless-stopped
@@ -171,7 +171,7 @@ services:
     image: plantilla_django_react_production_frontend
     restart: unless-stopped
     depends_on:
-      - django
+      - django_plantilla_django_react
     deploy:
       resources:
         reservations:
