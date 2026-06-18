@@ -27,6 +27,8 @@ services:
     networks:
       - dokploy-network
       - default
+    labels:
+      - "traefik.docker.network=dokploy-network"
 
   pgbouncer:
     build:
