@@ -96,7 +96,52 @@ Borra o reescribe el `README.md` con la información de tu proyecto.
 
 Verifica que la línea `<project_snake>/media/` esté correcta.
 
-### 2.11 Ocultar `.envs/` del repo
+### 2.11 Sufijo de servicios Docker (`_plantilla`)
+
+En `docker-compose.dokploy.yml`, **todos los servicios y volúmenes usan el sufijo `_plantilla`** para evitar colisiones de hostname en la red `dokploy-network`:
+
+```yaml
+services:
+  django_plantilla:      # NO solo "django"
+  pgbouncer_plantilla:
+  redis_plantilla:
+  traefik_plantilla:
+  celeryworker_plantilla:
+  celerybeat_plantilla:
+  flower_plantilla:
+  nginx_plantilla:
+  frontend_plantilla:
+```
+
+Y en `backend/compose/production/traefik/traefik.template.yml`, los `loadBalancer.servers.url` apuntan a esos hostnames:
+
+```yaml
+services:
+  django:
+    loadBalancer:
+      servers:
+        - url: http://django_plantilla:5000
+  django-media:
+    loadBalancer:
+      servers:
+        - url: http://nginx_plantilla:80
+  frontend:
+    loadBalancer:
+      servers:
+        - url: http://frontend_plantilla:80
+```
+
+**Por qué:** cuando varios proyectos conviven en el mismo host con Dokploy, los contenedores comparten la red `dokploy-network`. Si dos proyectos definen un servicio `django` (mismo hostname), Traefik los confunde y termina resolviendo las peticiones contra el proyecto equivocado. El sufijo encapsula cada stack bajo su propio namespace DNS.
+
+Después del find-and-replace de `plantilla_django_react` → `mi_proyecto`, **sustituye `_plantilla` por `_mi_proyecto`** en ambos archivos:
+
+```bash
+sed -i 's/_plantilla/_mi_proyecto/g' docker-compose.dokploy.yml backend/compose/production/traefik/traefik.template.yml
+```
+
+`docker-compose.production.yml` y `docker-compose.local.yml` se ejecutan aislados (sin red Dokploy compartida), por eso no necesitan sufijo.
+
+### 2.12 Ocultar `.envs/` del repo
 
 En `backend/.gitignore`, **descomenta** las 2 líneas del bloque "PLANTILLA BASE":
 
@@ -118,7 +163,7 @@ git rm --cached -r backend/.envs/.production/
 git status  # .envs/.production/ debe aparecer como ignored
 ```
 
-### 2.12 Regenerar `uv.lock`
+### 2.13 Regenerar `uv.lock`
 
 ```bash
 cd backend && uv lock
