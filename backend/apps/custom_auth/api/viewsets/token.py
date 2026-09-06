@@ -104,13 +104,20 @@ class MeView(APIView):
     def get(self, request):
         user = request.user
         groups = list(user.groups.values_list("name", flat=True))
+        # ``worker_profile`` es el ``related_name`` del OneToOneField
+        # User → WorkerProfile. ``getattr`` con default ``None`` evita
+        # una query cuando el usuario no tiene perfil (maestros,
+        # admins de plataforma) y mantiene el contrato: ``null`` cuando
+        # no aplica.
+        worker_profile = getattr(user, "worker_profile", None)
         return Response(
             {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "groups": groups,
-                "organization_id": None,
+                "organization_id": user.organization_id,
+                "worker_profile_id": worker_profile.id if worker_profile else None,
                 "is_staff": user.is_staff,
                 "is_superuser": user.is_superuser,
             },
