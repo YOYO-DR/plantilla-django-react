@@ -11,7 +11,6 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useMemo,
 } from "react";
@@ -134,9 +133,38 @@ export function DataProvider({ children }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: QK.workdays() }),
   });
 
-  // ---- Mutaciones que quedan para D2 (noop explícito) -------------
+  // ---- Mutaciones admin (F2) --------------------------------------
 
-  const noopAsync = useCallback(async () => undefined, []);
+  const crearTenantMut = useMutation({
+    mutationFn: (data) => organizationsService.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QK.organizations }),
+  });
+
+  const actualizarTenantMut = useMutation({
+    mutationFn: ({ id, data }) => organizationsService.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QK.organizations }),
+  });
+
+  const suspenderTenantMut = useMutation({
+    mutationFn: (id) => organizationsService.update(id, { is_active: false }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QK.organizations }),
+  });
+
+  const activarTenantMut = useMutation({
+    mutationFn: (id) => organizationsService.update(id, { is_active: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QK.organizations }),
+  });
+
+  const actualizarUsuarioMut = useMutation({
+    mutationFn: ({ id, data }) => usersService.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QK.users }),
+  });
+
+  const cambiarRolUsuarioMut = useMutation({
+    mutationFn: ({ id, role }) =>
+      usersService.update(id, { groups: [role] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QK.users }),
+  });
 
   // ---- Composición del value público -------------------------------
 
@@ -160,6 +188,8 @@ export function DataProvider({ children }) {
         workdaysQ.error ||
         movementsQ.error ||
         liquidacionesQ.error,
+      // rol
+      esAdminPlataforma: isAdmin,
       // refetch manual
       recargar: () => {
         qc.invalidateQueries({ queryKey: QK.workers });
@@ -179,17 +209,18 @@ export function DataProvider({ children }) {
       marcarDiaCompletoParaTodos: (data) => bulkMarkMut.mutateAsync(data),
       repetirSemanaAnterior: (data) => bulkCopyMut.mutateAsync(data),
       limpiarSemana: (data) => bulkClearMut.mutateAsync(data),
-      // mutaciones que quedan para D2 (placeholder honesto)
-      crearTenant: noopAsync,
-      actualizarTenant: noopAsync,
-      suspenderTenant: noopAsync,
-      activarTenant: noopAsync,
-      actualizarUsuario: noopAsync,
-      cambiarRolUsuario: noopAsync,
+      // mutaciones admin (F2) — solo el admin plataforma debería llamarlas.
+      crearTenant: (data) => crearTenantMut.mutateAsync(data),
+      actualizarTenant: (id, data) =>
+        actualizarTenantMut.mutateAsync({ id, data }),
+      suspenderTenant: (id) => suspenderTenantMut.mutateAsync(id),
+      activarTenant: (id) => activarTenantMut.mutateAsync(id),
+      actualizarUsuario: (id, data) =>
+        actualizarUsuarioMut.mutateAsync({ id, data }),
+      cambiarRolUsuario: (id, role) =>
+        cambiarRolUsuarioMut.mutateAsync({ id, role }),
       inferirUsuarioDesdeNombre: () => null,
       generarPassword: () => null, // el backend genera la contraseña.
-      // para D2
-      liquidar: noopAsync,
     }),
     [
       workersQ,
@@ -198,6 +229,7 @@ export function DataProvider({ children }) {
       liquidacionesQ,
       organizationsQ,
       usersQ,
+      isAdmin,
       crearTrabajadorMut,
       actualizarTrabajadorMut,
       activarTrabajadorMut,
@@ -206,6 +238,12 @@ export function DataProvider({ children }) {
       bulkMarkMut,
       bulkCopyMut,
       bulkClearMut,
+      crearTenantMut,
+      actualizarTenantMut,
+      suspenderTenantMut,
+      activarTenantMut,
+      actualizarUsuarioMut,
+      cambiarRolUsuarioMut,
       qc,
     ],
   );

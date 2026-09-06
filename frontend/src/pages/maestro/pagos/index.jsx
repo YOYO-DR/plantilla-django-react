@@ -276,11 +276,7 @@ export default function MaestroPagos() {
         </TabsContent>
 
         <TabsContent value="historial">
-          <HistorialPagos
-            trabajadores={trabajadores}
-            liquidaciones={liquidaciones.filter((l) => l.estado === "pagada")}
-            usuario={usuario}
-          />
+          <HistorialPagos />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,195 +1,141 @@
-// "Mi deuda" — saldo actual grande, timeline de movimientos y gráfica
-// (Fase 8 / R8 sólo lectura).
+// Deuda del trabajador — solo lectura.
+//
+// Lista los préstamos activos del trabajador desde balance.loans. Cada
+// préstamo muestra su saldo real (outstanding_balance). Sin botones de
+// escritura — el trabajador no abona, eso lo hace el maestro en el
+// wizard de liquidación.
 
-import { useMemo } from "react";
-import { CheckCircle2, ArrowUp, ArrowDown, Sparkles } from "lucide-react";
+import { Wallet, Info } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
-import { useData } from "@/context/DataContext";
-import { useTrabajadorActual } from "@/context/useTrabajadorActual";
+import { useMiBalance } from "@/lib/useMiBalance";
 import { formatCOP, formatFecha } from "@/lib/format";
-import { saldoDeuda } from "@/lib/calculo";
-import { evolucionSaldos, esMovimientoEditable, totalAbonado, totalPrestado } from "@/lib/movimientos";
-import { GraficaEvolucionSaldo } from "@/components/Maestro/GraficaEvolucionSaldo";
+import { parseApiError } from "@/api/errorMessage";
 
 export default function TrabajadorDeuda() {
-  const { movimientos, liquidaciones } = useData();
-  const t = useTrabajadorActual();
+  const balanceQ = useMiBalance();
 
-  const ordenados = useMemo(
-    () => [...movimientos].sort((a, b) => (a.fecha > b.fecha ? -1 : 1)),
-    [movimientos],
-  );
-  const evo = useMemo(() => evolucionSaldos(movimientos), [movimientos]);
-  const lineaInversa = [...evo].reverse();
-
-  const liqPorId = useMemo(
-    () => new Map(liquidaciones.map((l) => [l.id, l])),
-    [liquidaciones],
-  );
-
-  if (!t) {
+  if (balanceQ.isLoading) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">
-          No se encontró tu información.
+        <CardContent className="space-y-3 py-8">
+          <div className="h-6 w-32 animate-pulse rounded bg-muted" />
+          <div className="h-10 animate-pulse rounded bg-muted" />
+        </CardContent>
+      </Card>
+    );
+  }
+  if (balanceQ.isError) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-destructive">
+          {parseApiError(balanceQ.error).message}
         </CardContent>
       </Card>
     );
   }
 
-  const saldo = Math.max(0, saldoDeuda(movimientos));
-  const prestado = totalPrestado(movimientos);
-  const abonado = totalAbonado(movimientos);
+  const balance = balanceQ.data;
+  const loans = balance?.loans ?? [];
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="display text-2xl font-semibold sm:text-3xl">Mi deuda</h1>
+    <div className="space-y-5 pb-4">
+      <header className="space-y-1">
+        <h1 className="display text-2xl font-semibold sm:text-3xl">Tu deuda</h1>
         <p className="text-sm text-muted-foreground">
-          Cuánto le debes a tu maestro, de dónde viene y cómo se descuenta.
+          Préstamos que tu maestro te ha otorgado. El saldo se descuenta
+          automáticamente cuando liquida.
         </p>
       </header>
 
-      {/* Saldo grande */}
-      <Card>
-        <CardContent className="space-y-2 p-5 text-center sm:text-left">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Saldo actual</p>
-          {saldo === 0 ? (
-            <p className="display text-4xl font-bold text-success">
-              <CheckCircle2 className="mr-2 inline h-8 w-8" />
-              Estás al día
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex items-baseline justify-between gap-2 p-5">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-destructive" />
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Saldo total
             </p>
-          ) : (
-            <p className="display text-5xl font-bold num text-destructive">
-              {formatCOP(saldo)}
-            </p>
-          )}
-          <div className="grid grid-cols-2 gap-4 pt-2 text-sm sm:max-w-md">
-            <div>
-              <p className="text-muted-foreground">Total prestado</p>
-              <p className="num font-semibold">{formatCOP(prestado)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Total abonado</p>
-              <p className="num font-semibold text-success">{formatCOP(abonado)}</p>
-            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Explicación */}
-      <Card>
-        <CardContent className="prose prose-sm max-w-none p-4 text-sm text-muted-foreground">
-          <p>
-            Cuando tu maestro te paga la semana, descuenta automáticamente la deuda
-            que tengas <strong>más antigua</strong>, hasta donde alcance el pago. Los
-            abonos manuales (por ejemplo transferencias a tu cuenta) los registra él
-            también.
+          <p className="display text-3xl font-bold num text-destructive">
+            {formatCOP(balance?.saldo_prestamos ?? 0)}
           </p>
         </CardContent>
       </Card>
 
-      {/* Gráfica */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="display text-base">Evolución del saldo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <GraficaEvolucionSaldo movimientos={movimientos} fechaISO={new Date().toISOString().slice(0, 10)} />
-        </CardContent>
-      </Card>
-
-      {/* Timeline */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="display text-base">Historial</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {ordenados.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Sin movimientos todavía.
+      {loans.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <Wallet className="h-10 w-10 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              No tienes préstamos activos.
             </p>
-          ) : (
-            <ol className="relative space-y-3 border-l-2 border-dashed border-border pl-5">
-              {lineaInversa.map(({ mov, saldo: saldoLinea }) => {
-                const liq = mov.liquidacionId ? liqPorId.get(mov.liquidacionId) : null;
-                const Icon =
-                  mov.tipo === "prestamo"
-                    ? ArrowUp
-                    : mov.tipo === "abono"
-                      ? ArrowDown
-                      : Sparkles;
-                const colors = {
-                  prestamo: "bg-destructive/15 text-destructive border-destructive/40",
-                  abono: "bg-success/15 text-success border-success/40",
-                  ajuste: "bg-muted text-muted-foreground border-border",
-                };
-                return (
-                  <li key={mov.id} className="relative">
-                    <span
-                      className={`absolute -left-[33px] flex h-7 w-7 items-center justify-center rounded-full border ${colors[mov.tipo]}`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="rounded-md border bg-card p-3">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <div>
-                          <p className="font-medium">
-                            {mov.tipo === "prestamo"
-                              ? "Recibiste un préstamo"
-                              : mov.tipo === "abono"
-                                ? "Recibiste un abono"
-                                : "Ajuste"}
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              {formatFecha(mov.fecha, "dd 'de' MMM 'de' yyyy")}
-                            </span>
-                          </p>
-                          <p className="text-sm text-muted-foreground">{mov.concepto}</p>
-                        </div>
-                        <div className="text-right">
-                          <p
-                            className={`num text-base font-bold ${
-                              mov.tipo === "prestamo"
-                                ? "text-destructive"
-                                : mov.tipo === "abono"
-                                  ? "text-success"
-                                  : "text-muted-foreground"
-                            }`}
-                          >
-                            {mov.tipo === "abono" ? "−" : "+"}
-                            {formatCOP(mov.monto)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Saldo: <span className="num font-semibold">{formatCOP(saldoLinea)}</span>
-                          </p>
-                        </div>
-                      </div>
-                      {liq && (
-                        <Badge
-                          variant="outline"
-                          className="mt-2 border-primary/40 text-primary"
-                        >
-                          {liq.consecutivo
-                            ? `Descuento en pago #${liq.consecutivo}`
-                            : "Descuento en liquidación"}
-                        </Badge>
-                      )}
-                      {!esMovimientoEditable(mov, liquidaciones) && (
-                        <Badge variant="secondary" className="ml-1 mt-2 text-[10px]">
-                          Cerrado
-                        </Badge>
-                      )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {loans.map((loan) => {
+            const totalCents = parseCents(loan.amount);
+            const saldoCents = parseCents(loan.outstanding_balance);
+            const abonadoCents = Math.max(0, totalCents - saldoCents);
+            const progreso =
+              totalCents > 0 ? Math.min(100, Math.round((abonadoCents / totalCents) * 100)) : 0;
+            return (
+              <Card key={loan.id}>
+                <CardContent className="space-y-2 p-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold">
+                      {loan.reason || `Préstamo #${loan.id}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground num">
+                      {formatFecha(loan.date, "dd/MM/yyyy")}
+                    </p>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Saldo</p>
+                      <p className="num text-xl font-bold text-destructive">
+                        {formatCOP(loan.outstanding_balance)}
+                      </p>
                     </div>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Prestado</p>
+                      <p className="num text-base font-semibold">
+                        {formatCOP(loan.amount)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Progress value={progreso} className="h-1.5 flex-1" />
+                    <span className="text-xs text-muted-foreground num">
+                      {progreso}% abonado
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          Tu maestro descuenta los abonos al registrar una liquidación. No
+          tienes acción directa sobre esta pantalla.
+        </span>
+      </div>
     </div>
   );
+}
+
+function parseCents(amount) {
+  if (amount == null) return 0;
+  const s = String(amount);
+  const [ent, dec = ""] = s.split(".");
+  const padded = (dec + "00").slice(0, 2);
+  const sign = ent.startsWith("-") ? -1 : 1;
+  const abs = ent.replace("-", "") || "0";
+  return sign * (parseInt(abs, 10) * 100 + parseInt(padded || "0", 10));
 }

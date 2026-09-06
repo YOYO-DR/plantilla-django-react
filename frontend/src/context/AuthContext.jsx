@@ -21,8 +21,9 @@ export function AuthProvider({ children }) {
   const [tenant, setTenant] = useState(null);
   const [trabajador, setTrabajador] = useState(null);
 
-  // Hidratar sesión al montar — si hay user en el store, intentar cargar
-  // /api/auth/me/ para refrescarlo, y traer el tenant si existe.
+  // Hidratar sesión al montar — siempre llamar /api/auth/me/ para tener
+  // worker_profile_id y organization_id al día (el store persistido puede
+  // tener el shape antiguo si el backend cambió desde el último login).
   useEffect(() => {
     let cancelado = false;
     async function bootstrap() {
@@ -31,23 +32,22 @@ export function AuthProvider({ children }) {
           setCargando(false);
           return;
         }
-        if (!user && accessToken) {
-          try {
-            const fresh = await authService.me();
-            authStore.setUser(fresh);
-          } catch (_) {
-            // refresh failed, leave as is
-          }
+        try {
+          const fresh = await authService.me();
+          if (!cancelado) authStore.setUser(fresh);
+        } catch (_) {
+          // refresh failed o token expirado: el guard de rutas se encargará.
         }
-        if (user?.organization_id) {
+        const u = useAuthStore.getState().user;
+        if (u?.organization_id) {
           try {
             const t = await organizationsService.me();
             if (!cancelado) setTenant(t);
           } catch (_) {
             if (!cancelado) setTenant(null);
           }
-        } else {
-          if (!cancelado) setTenant(null);
+        } else if (!cancelado) {
+          setTenant(null);
         }
       } finally {
         if (!cancelado) setCargando(false);

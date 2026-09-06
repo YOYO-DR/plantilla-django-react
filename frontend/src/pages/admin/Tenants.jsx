@@ -39,6 +39,7 @@ export default function AdminTenants() {
     liquidaciones,
     suspenderTenant,
     activarTenant,
+    esAdminPlataforma,
   } = useData();
   const [crearOpen, setCrearOpen] = useState(false);
   const [confirmSuspender, setConfirmSuspender] = useState(null);
@@ -92,9 +93,11 @@ export default function AdminTenants() {
             <span className="font-semibold text-foreground">{tenantsPorEstado.suspendidos}</span> suspendidas
           </p>
         </div>
-        <Button onClick={() => setCrearOpen(true)} className="min-h-tap">
-          <Plus className="mr-2 h-4 w-4" /> Crear cuadrilla
-        </Button>
+        {esAdminPlataforma && (
+          <Button onClick={() => setCrearOpen(true)} className="min-h-tap">
+            <Plus className="mr-2 h-4 w-4" /> Crear cuadrilla
+          </Button>
+        )}
       </header>
 
       <div className="rounded-md border bg-card">
@@ -163,7 +166,7 @@ export default function AdminTenants() {
                           <Eye className="mr-1 h-3.5 w-3.5" /> Ver
                         </Link>
                       </Button>
-                      {t.estado === "activo" ? (
+                      {esAdminPlataforma && (t.estado === "activo" ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -184,7 +187,7 @@ export default function AdminTenants() {
                         >
                           <Power className="mr-1 h-3.5 w-3.5" /> Reactivar
                         </Button>
-                      )}
+                      ))}
                     </TableCell>
                   </TableRow>
                 );

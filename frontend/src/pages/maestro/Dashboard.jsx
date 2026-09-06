@@ -1,5 +1,8 @@
 // Dashboard del maestro — "¿qué pasa esta semana?".
-// Resumen KPI + tabla por trabajador + accesos rápidos + estado vacío.
+//
+// Regla del plan: los montos vienen del backend. Cada tarjeta pinta un
+// agregado de /api/workers/{id}/balance/ (sin recalcular nada en cliente).
+// Conteo de jornadas sí es client-side, pero no es monto.
 
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -10,7 +13,6 @@ import {
   AlertOctagon,
   CalendarCheck,
   Wallet,
-  Calculator,
   UserPlus,
   ArrowRight,
   HardHat,
@@ -23,7 +25,8 @@ import { Separator } from "@/components/ui/separator";
 
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
-import { saldoDeuda, totalJornadas, valorJornada } from "@/lib/calculo";
+import { useWorkersBalances } from "@/lib/useWorkersBalances";
+import { fromCents, toCents } from "@/lib/cents";
 import { formatearSemanaLarga } from "@/lib/usuarios";
 import { formatCOP } from "@/lib/format";
 import {
@@ -37,93 +40,89 @@ import { SemanaDots } from "@/components/shared/SemanaDots";
 
 export default function MaestroDashboard() {
   const { usuario, tenant } = useAuth();
-  const { trabajadores, jornadas, movimientos } = useData();
+  const { trabajadores, jornadas } = useData();
 
   const inicio = useMemo(() => inicioSemana(hoyISO()), []);
   const fin = useMemo(() => finSemana(inicio), [inicio]);
   const dias = useMemo(() => diasDeSemana(inicio), [inicio]);
 
-  const trabajadoresActivos = useMemo(
+  const activos = useMemo(
     () => trabajadores.filter((t) => t.estado === "activo"),
     [trabajadores],
   );
 
-  // ---------- KPIs ---------------------------------------------------------
+  const { balances, isLoading: balancesLoading } = useWorkersBalances(
+    activos.map((t) => t.id),
+  );
+
+  // ---- KPIs agregados a partir del balance del backend ------------------
 
   const kpis = useMemo(() => {
-    const inicioActual = inicio;
-    const finActual = fin;
+    let adeudadoCents = 0;
+    let prestamosCents = 0;
+    for (const t of activos) {
+      const b = balances[t.id];
+      if (!b) continue;
+      adeudadoCents += toCents(b.adeudado_workdays);
+      prestamosCents += toCents(b.saldo_prestamos);
+    }
 
-    const jsSemana = jornadas.filter(
+    // Días marcados esta semana (no requiere monto).
+    const idsActivos = new Set(activos.map((t) => t.id));
+    const enSemana = jornadas.filter(
       (j) =>
-        j.fecha >= inicioActual &&
-        j.fecha <= finActual &&
-        trabajadoresActivos.some((t) => t.id === j.trabajadorId),
+        j.fecha >= inicio &&
+        j.fecha <= fin &&
+        idsActivos.has(j.trabajadorId) &&
+        j.tipo !== "no_trabajo",
     );
 
-    // Días marcados (no no_trabajo)
-    const diasMarcados = jsSemana.filter((j) => j.tipo !== "no_trabajo").length;
-    const diasPosibles = trabajadoresActivos.length * 7;
-
-    // Acumulado a pagar (jornadas no liquidadas)
-    const acumuladoAPagar = jsSemana
-      .filter((j) => j.liquidacionId === null)
-      .reduce((acc, j) => {
-        const t = trabajadoresActivos.find((t) => t.id === j.trabajadorId);
-        return t ? acc + valorJornada(j, t) : acc;
-      }, 0);
-
-    // Deuda total vigente de la cuadrilla (sólo trabajadores activos)
-    const deudaTotal = trabajadoresActivos.reduce((acc, t) => {
-      const movs = movimientos.filter((m) => m.trabajadorId === t.id);
-      return acc + Math.max(0, saldoDeuda(movs));
-    }, 0);
-
     return {
-      totalActivos: trabajadoresActivos.length,
-      diasMarcados,
-      diasPosibles,
-      acumuladoAPagar,
-      deudaTotal,
+      totalActivos: activos.length,
+      adeudado: fromCents(adeudadoCents),
+      prestamos: fromCents(prestamosCents),
+      diasMarcados: enSemana.length,
+      diasPosibles: activos.length * 7,
     };
-  }, [inicio, fin, trabajadoresActivos, jornadas, movimientos]);
+  }, [activos, balances, jornadas, inicio, fin]);
 
-  // ---------- Resumen por trabajador ---------------------------------------
+  // ---- Resumen por trabajador -------------------------------------------
 
   const resumenSemana = useMemo(() => {
-    return trabajadoresActivos.map((t) => {
+    return activos.map((t) => {
       const jsSem = jornadas.filter(
         (j) =>
           j.trabajadorId === t.id &&
           j.fecha >= inicio &&
           j.fecha <= fin,
       );
-      const totalSem = totalJornadas(jsSem, t);
-      const movsT = movimientos.filter((m) => m.trabajadorId === t.id);
-      const deuda = Math.max(0, saldoDeuda(movsT));
-      return { t, jornadas: jsSem, total: totalSem, deuda };
+      const b = balances[t.id];
+      return {
+        t,
+        balance: b,
+        dias: jsSem,
+        deudaCents: b ? toCents(b.saldo_prestamos) : 0,
+      };
     });
-  }, [trabajadoresActivos, jornadas, movimientos, inicio, fin]);
+  }, [activos, balances, jornadas, inicio, fin]);
 
-  // ---------- Estado vacío -------------------------------------------------
+  // ---- Estados vacíos -------------------------------------------------
 
-  if (trabajadoresActivos.length === 0 && trabajadores.length === 0) {
+  if (activos.length === 0 && trabajadores.length === 0) {
     return <EstadoVacioCuadrilla />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
       <header className="space-y-1">
         <h1 className="display text-2xl font-semibold sm:text-3xl">
-          Buenas, {usuario?.nombre?.split(" ")[0]}.
+          Buenas, {usuario?.nombre?.split(" ")[0] ?? "maestro"}.
         </h1>
         <p className="text-sm text-muted-foreground">
           {tenant?.nombre} · {formatearSemanaLarga(inicio, fin)}
         </p>
       </header>
 
-      {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Trabajadores activos"
@@ -145,21 +144,28 @@ export default function MaestroDashboard() {
           tono="info"
         />
         <KpiCard
-          label="Acumulado a pagar esta semana"
-          value={<span className="num">{formatCOP(kpis.acumuladoAPagar)}</span>}
+          label="Total pendiente por pagar"
+          value={
+            <span className="num">
+              {balancesLoading ? "…" : formatCOP(kpis.adeudado)}
+            </span>
+          }
           icon={Banknote}
-          tono={kpis.acumuladoAPagar > 0 ? "success" : "muted"}
+          tono={toCents(kpis.adeudado) > 0 ? "success" : "muted"}
           destacado
         />
         <KpiCard
-          label="Deuda total vigente"
-          value={<span className="num">{formatCOP(kpis.deudaTotal)}</span>}
+          label="Préstamos activos"
+          value={
+            <span className="num">
+              {balancesLoading ? "…" : formatCOP(kpis.prestamos)}
+            </span>
+          }
           icon={AlertOctagon}
-          tono={kpis.deudaTotal > 0 ? "danger" : "muted"}
+          tono={toCents(kpis.prestamos) > 0 ? "danger" : "muted"}
         />
       </div>
 
-      {/* Tabla resumen */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <CardTitle className="text-base">Resumen de la semana</CardTitle>
@@ -172,11 +178,11 @@ export default function MaestroDashboard() {
         <CardContent className="space-y-2">
           {resumenSemana.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              No tienes trabajadores activos. Crea el primero desde el botón "Agregar
-              trabajador".
+              No tienes trabajadores activos. Crea el primero desde el botón
+              "Agregar trabajador".
             </p>
           ) : (
-            resumenSemana.map(({ t, jornadas: js, total, deuda }) => (
+            resumenSemana.map(({ t, balance, dias: js, deudaCents }) => (
               <Link
                 key={t.id}
                 to={`/app/maestro/trabajadores/${t.id}`}
@@ -186,7 +192,9 @@ export default function MaestroDashboard() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate font-medium">{t.nombre}</p>
-                    <span className="font-semibold num">{formatCOP(total)}</span>
+                    <span className="font-semibold num">
+                      {balance ? formatCOP(balance.adeudado_workdays) : "…"}
+                    </span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant="outline" className="font-normal">
@@ -194,14 +202,14 @@ export default function MaestroDashboard() {
                     </Badge>
                     <span>·</span>
                     <SemanaDots dias={dias} jornadas={js} trabajador={t} size="sm" />
-                    {deuda > 0 && (
+                    {deudaCents > 0 ? (
                       <Badge
                         variant="outline"
                         className="border-destructive/30 text-destructive"
                       >
-                        Deuda {formatCOP(deuda)}
+                        Deuda {formatCOP(balance.saldo_prestamos)}
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
@@ -213,7 +221,6 @@ export default function MaestroDashboard() {
 
       <Separator />
 
-      {/* Accesos rápidos */}
       <div>
         <h2 className="display text-lg font-semibold">Accesos rápidos</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -241,15 +248,7 @@ export default function MaestroDashboard() {
   );
 }
 
-// ---------------------------------------------------------------------------
-
-function KpiCard({
-  label,
-  value,
-  icon: Icon,
-  tono = "primary",
-  destacado,
-}) {
+function KpiCard({ label, value, icon: Icon, tono = "primary", destacado }) {
   const toneClasses = {
     primary: "bg-primary/10 text-primary",
     success: "bg-success/10 text-success",
@@ -262,12 +261,26 @@ function KpiCard({
     <Card className={destacado ? "border-primary/30" : undefined}>
       <CardContent className="flex items-start justify-between gap-2 p-4">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-          <p className={`mt-2 ${destacado ? "text-3xl" : "text-2xl"} font-bold leading-tight ${tono === "danger" ? "text-destructive" : tono === "success" ? "text-success" : ""}`}>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {label}
+          </p>
+          <p
+            className={`mt-2 ${
+              destacado ? "text-3xl" : "text-2xl"
+            } font-bold leading-tight ${
+              tono === "danger"
+                ? "text-destructive"
+                : tono === "success"
+                  ? "text-success"
+                  : ""
+            }`}
+          >
             {value}
           </p>
         </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${toneClasses[tono]}`}>
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${toneClasses[tono]}`}
+        >
           <Icon className="h-5 w-5" />
         </div>
       </CardContent>
@@ -275,12 +288,7 @@ function KpiCard({
   );
 }
 
-function AccesoRapido({
-  to,
-  label,
-  desc,
-  icon: Icon,
-}) {
+function AccesoRapido({ to, label, desc, icon: Icon }) {
   return (
     <Link
       to={to}
@@ -304,11 +312,13 @@ function EstadoVacioCuadrilla() {
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
         <HardHat className="h-9 w-9" />
       </div>
-      <h2 className="display mt-4 text-xl font-semibold">Aún no tienes trabajadores</h2>
+      <h2 className="display mt-4 text-xl font-semibold">
+        Aún no tienes trabajadores
+      </h2>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
         Crea tu primer trabajador para empezar a marcar jornadas y registrar
-        préstamos. Le generaremos un usuario para que pueda ver su información en
-        solo lectura.
+        préstamos. Le generaremos un usuario para que pueda ver su información
+        en solo lectura.
       </p>
       <Button asChild className="mt-5 min-h-tap">
         <Link to="/app/maestro/trabajadores">

@@ -51,6 +51,7 @@ export default function AdminUsuarios() {
     actualizarUsuario,
     resetearPasswordUsuario,
     cambiarRolUsuario,
+    esAdminPlataforma,
   } = useData();
   const { generarPassword, usuario: yo } = useAuth();
 
@@ -187,17 +188,19 @@ export default function AdminUsuarios() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setResetPwd(generarPassword(10));
-                          setResetOpen(u.id);
-                        }}
-                      >
-                        <KeyRound className="mr-1 h-3.5 w-3.5" /> Reset
-                      </Button>
-                      {yo?.id !== u.id && (
+                      {esAdminPlataforma && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setResetPwd(generarPassword(10));
+                            setResetOpen(u.id);
+                          }}
+                        >
+                          <KeyRound className="mr-1 h-3.5 w-3.5" /> Reset
+                        </Button>
+                      )}
+                      {esAdminPlataforma && yo?.id !== u.id && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -207,7 +210,7 @@ export default function AdminUsuarios() {
                           Cambiar rol
                         </Button>
                       )}
-                      {yo?.id !== u.id && (
+                      {esAdminPlataforma && yo?.id !== u.id && (
                         u.estado === "activo" ? (
                           <Button
                             variant="ghost"

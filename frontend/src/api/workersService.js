@@ -2,6 +2,15 @@ import { useAuthStore } from "@/store/authStore";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
+export class ApiError extends Error {
+  constructor(message, status, body) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function request(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -15,8 +24,17 @@ async function request(path, options = {}) {
     headers,
   });
   if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail || "Error");
+    let body = null;
+    try {
+      body = await resp.json();
+    } catch {
+      // respuesta sin body JSON; dejamos body=null.
+    }
+    const msg =
+      (body && typeof body === "object" && typeof body.detail === "string"
+        ? body.detail
+        : null) || `Error ${resp.status}`;
+    throw new ApiError(msg, resp.status, body);
   }
   if (resp.status === 204) return null;
   return resp.json();
@@ -32,7 +50,8 @@ export const workersService = {
     request("/workers/", { method: "POST", body: JSON.stringify(data) }),
   update: (id, data) =>
     request(`/workers/${id}/`, { method: "PATCH", body: JSON.stringify(data) }),
-  remove: (id) => request(`/workers/${id}/`, { method: "DELETE" }),
+  remove: (id) =>
+    request(`/workers/${id}/`, { method: "DELETE" }),
   resetPassword: (id) =>
     request(`/workers/${id}/reset-password/`, { method: "POST" }),
   balance: (id) => request(`/workers/${id}/balance/`),
@@ -60,4 +79,18 @@ export const workersService = {
     }),
   voidPayment: (id) =>
     request(`/payments/${id}/void/`, { method: "POST" }),
+  // Pagos (lista y detalle). El serializer ampliado por el backend trae
+  // voided_at, voided_by (con nombre) y los detalles workday/loan anidados.
+  listPayments: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/payments/${qs ? `?${qs}` : ""}`);
+  },
+  getPayment: (id) => request(`/payments/${id}/`),
+  // Préstamos
+  listLoans: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/loans/${qs ? `?${qs}` : ""}`);
+  },
+  createLoan: (data) =>
+    request("/loans/", { method: "POST", body: JSON.stringify(data) }),
 };
