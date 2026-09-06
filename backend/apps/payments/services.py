@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field
-from datetime import date
 from decimal import ROUND_HALF_UP
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import Sum
@@ -27,8 +27,6 @@ from django.utils import timezone
 from apps.catalogs.models import LoanStatus
 from apps.catalogs.models import PaymentMethod
 from apps.catalogs.models import PaymentStatus
-from apps.users.models import User
-from apps.users.models import WorkerProfile
 from apps.workdays.models import Workday
 
 from .exceptions import CrossOrganizationError
@@ -41,8 +39,14 @@ from .models import Payment
 from .models import PaymentLoanDetail
 from .models import PaymentWorkdayDetail
 
+if TYPE_CHECKING:
+    from datetime import date  # pragma: no cover
 
-def _cents(value: Decimal | int | float | str) -> Decimal:
+    from apps.users.models import User  # pragma: no cover
+    from apps.users.models import WorkerProfile  # pragma: no cover
+
+
+def _cents(value: Decimal | float | str) -> Decimal:
     """Redondeo a 2 decimales (HALF_UP) consistente con todos los servicios."""
     return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -59,16 +63,12 @@ def _loan_status(name: str) -> LoanStatus:
 
 def _payment_details_sum(payment: Payment) -> Decimal:
     """Suma real de detalles (jornadas + préstamos) leída desde la BD."""
-    wd_sum = (
-        PaymentWorkdayDetail.objects.filter(payment=payment)
-        .aggregate(t=Sum("applied_amount"))["t"]
-        or Decimal("0")
-    )
-    ln_sum = (
-        PaymentLoanDetail.objects.filter(payment=payment)
-        .aggregate(t=Sum("paid_amount"))["t"]
-        or Decimal("0")
-    )
+    wd_sum = PaymentWorkdayDetail.objects.filter(payment=payment).aggregate(
+        t=Sum("applied_amount"),
+    )["t"] or Decimal("0")
+    ln_sum = PaymentLoanDetail.objects.filter(payment=payment).aggregate(
+        t=Sum("paid_amount"),
+    )["t"] or Decimal("0")
     return _cents(wd_sum) + _cents(ln_sum)
 
 
@@ -135,7 +135,7 @@ def create_loan(
     *,
     worker: WorkerProfile,
     amount: Decimal,
-    date: date,  # noqa: A002
+    date: date,
     reason: str = "",
     created_by: User,
 ) -> Loan:
@@ -168,24 +168,28 @@ def _ensure_same_org(*, worker: WorkerProfile, workdays, loans) -> None:
     worker_org_id = worker.user.organization_id
     for wd in workdays:
         if wd.worker.user.organization_id != worker_org_id:
+            msg = f"La jornada {wd.id} pertenece a otra organización."
             raise CrossOrganizationError(
-                f"La jornada {wd.id} pertenece a otra organización.",
+                msg,
             )
         if wd.worker_id != worker.id:
+            msg = f"La jornada {wd.id} pertenece a otro trabajador ({wd.worker_id})."
             raise CrossOrganizationError(
-                f"La jornada {wd.id} pertenece a otro trabajador "
-                f"({wd.worker_id}).",
+                msg,
             )
 
     for loan in loans:
         if loan.worker.user.organization_id != worker_org_id:
+            msg = f"El préstamo {loan.id} pertenece a otra organización."
             raise CrossOrganizationError(
-                f"El préstamo {loan.id} pertenece a otra organización.",
+                msg,
             )
         if loan.worker_id != worker.id:
+            msg = (
+                f"El préstamo {loan.id} pertenece a otro trabajador ({loan.worker_id})."
+            )
             raise CrossOrganizationError(
-                f"El préstamo {loan.id} pertenece a otro trabajador "
-                f"({loan.worker_id}).",
+                msg,
             )
 
 
@@ -196,13 +200,10 @@ def _recalc_workday_status(workday: Workday) -> None:
     ``0 < suma < applied_rate`` → ``Parcial``.
     ``suma == 0`` → ``Pendiente``.
     """
-    total = (
-        PaymentWorkdayDetail.objects.filter(
-            workday=workday,
-            payment__voided_at__isnull=True,
-        ).aggregate(t=Sum("applied_amount"))["t"]
-        or Decimal("0")
-    )
+    total = PaymentWorkdayDetail.objects.filter(
+        workday=workday,
+        payment__voided_at__isnull=True,
+    ).aggregate(t=Sum("applied_amount"))["t"] or Decimal("0")
     total = _cents(total)
 
     if total <= Decimal("0"):
@@ -240,13 +241,10 @@ def _build_workday_amounts(
             amount = _cents(overrides[wd.id])
         else:
             amount = _cents(wd.applied_rate)
-        ya_pagado = (
-            PaymentWorkdayDetail.objects.filter(
-                workday=wd,
-                payment__voided_at__isnull=True,
-            ).aggregate(t=Sum("applied_amount"))["t"]
-            or Decimal("0")
-        )
+        ya_pagado = PaymentWorkdayDetail.objects.filter(
+            workday=wd,
+            payment__voided_at__isnull=True,
+        ).aggregate(t=Sum("applied_amount"))["t"] or Decimal("0")
         ya_pagado = _cents(ya_pagado)
         if _cents(ya_pagado) + amount > _cents(wd.applied_rate):
             msg = (
@@ -296,11 +294,11 @@ def _build_loan_amounts(
 
 
 @transaction.atomic
-def register_payment(
+def register_payment(  # noqa: PLR0913, C901 — Fase B: contrato por dominio
     *,
     worker: WorkerProfile,
     payment_method: PaymentMethod,
-    payment_date: date,  # noqa: A002
+    payment_date: date,
     workday_ids: list[int],
     loan_allocations: list[LoanAllocation],
     created_by: User,
@@ -316,7 +314,7 @@ def register_payment(
     loans = list(
         Loan.objects.select_for_update().filter(id__in=requested_loan_ids),
     )
-    loans_by_id = {l.id: l for l in loans}
+    loans_by_id = {loan_obj.id: loan_obj for loan_obj in loans}
 
     _ensure_same_org(worker=worker, workdays=workdays, loans=loans)
 
@@ -337,24 +335,30 @@ def register_payment(
     allocations_by_id = {la.loan.id: la for la in loan_allocations}
     for loan in loans:
         if loan.status_id == status_pag.id:
+            msg = f"El préstamo {loan.id} ya está Pagado."
             raise LoanOverpaymentError(
-                f"El préstamo {loan.id} ya está Pagado.",
+                msg,
             )
         if loan.status_id == status_cond.id:
+            msg = f"El préstamo {loan.id} está Condonado; no admite abonos."
             raise LoanOverpaymentError(
-                f"El préstamo {loan.id} está Condonado; no admite abonos.",
+                msg,
             )
         if loan.outstanding_balance <= Decimal("0"):
+            msg = f"El préstamo {loan.id} tiene saldo 0."
             raise LoanOverpaymentError(
-                f"El préstamo {loan.id} tiene saldo 0.",
+                msg,
             )
         alloc = allocations_by_id.get(loan.id)
         if alloc is not None and _cents(alloc.amount) > _cents(
             loan.outstanding_balance,
         ):
-            raise LoanOverpaymentError(
+            msg = (
                 f"Abono {alloc.amount} excede saldo {loan.outstanding_balance} "
-                f"del préstamo {loan.id}.",
+                f"del préstamo {loan.id}."
+            )
+            raise LoanOverpaymentError(
+                msg,
             )
 
     # Subtotal BRUTO = suma de detalles (jornadas + préstamos).
@@ -420,8 +424,9 @@ def void_payment(*, payment: Payment, voided_by: User) -> Payment:
     # Refrescar desde DB por si el caller lo leyó hace varias operaciones.
     payment.refresh_from_db()
     if payment.voided_at is not None:
+        msg = f"El pago {payment.id} ya está anulado."
         raise PaymentAlreadyVoidedError(
-            f"El pago {payment.id} ya está anulado.",
+            msg,
         )
 
     payment.voided_at = timezone.now()
@@ -448,7 +453,10 @@ def void_payment(*, payment: Payment, voided_by: User) -> Payment:
         # Tras revertir, si el saldo vuelve a ser >0, el préstamo está
         # Activo. La única excepción es si el préstamo estaba Condonado
         # ANTES del pago que ahora anulamos: conservar Condonado.
-        if loan.outstanding_balance > Decimal("0") and snapshot_status.id != condonado_id:
+        if (
+            loan.outstanding_balance > Decimal("0")
+            and snapshot_status.id != condonado_id
+        ):
             loan.status = _loan_status_activo()
         else:
             loan.status = snapshot_status
@@ -480,20 +488,15 @@ def worker_balance(worker: WorkerProfile) -> WorkerBalance:
     )
     adeudado_total = Decimal("0")
     for wd in adeudado_qs:
-        ya_pagado = (
-            PaymentWorkdayDetail.objects.filter(
-                workday=wd,
-                payment__voided_at__isnull=True,
-            ).aggregate(t=Sum("applied_amount"))["t"]
-            or Decimal("0")
-        )
+        ya_pagado = PaymentWorkdayDetail.objects.filter(
+            workday=wd,
+            payment__voided_at__isnull=True,
+        ).aggregate(t=Sum("applied_amount"))["t"] or Decimal("0")
         adeudado_total += _cents(wd.applied_rate) - _cents(ya_pagado)
 
     status_act = _loan_status_activo()
     saldo_qs = Loan.objects.filter(worker=worker, status=status_act)
-    saldo_total = (
-        saldo_qs.aggregate(t=Sum("outstanding_balance"))["t"] or Decimal("0")
-    )
+    saldo_total = saldo_qs.aggregate(t=Sum("outstanding_balance"))["t"] or Decimal("0")
 
     pendientes_count = adeudado_qs.filter(
         payment_status=status_pend,

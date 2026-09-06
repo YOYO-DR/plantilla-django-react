@@ -14,11 +14,9 @@ from decimal import Decimal
 import pytest
 from django.db.models import Sum
 
-from apps.catalogs.tests.factories import (
-    LoanStatusFactory,
-    PaymentMethodFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import LoanStatusFactory
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.organizations.tests.factories import OrganizationFactory
 from apps.payments.exceptions import CrossOrganizationError
 from apps.payments.exceptions import InconsistentPaymentTotalError
@@ -26,15 +24,10 @@ from apps.payments.exceptions import LoanOverpaymentError
 from apps.payments.models import Loan
 from apps.payments.models import Payment
 from apps.payments.models import PaymentWorkdayDetail
-from apps.payments.services import (
-    LoanAllocation,
-    create_loan,
-    register_payment,
-)
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
+from apps.payments.services import LoanAllocation
+from apps.payments.services import register_payment
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.services import create_workday
 from apps.workdays.tests.factories import WorkerRateFactory
 
@@ -95,7 +88,9 @@ def test_cross_org_same_org_different_worker_loan_raises_with_worker_msg():
             payment_method=pm,
             payment_date=date(2026, 1, 16),
             workday_ids=[],
-            loan_allocations=[LoanAllocation(loan=loan_other, amount=Decimal("5000.00"))],
+            loan_allocations=[
+                LoanAllocation(loan=loan_other, amount=Decimal("5000.00")),
+            ],
             created_by=maestro,
         )
 
@@ -157,7 +152,7 @@ def test_overpayment_error_branch_with_full_then_partial_workday():
     )
 
     # Segundo intento: explícito 1.00 sobre la misma jornada ya pagada → overpayment.
-    from apps.payments.exceptions import OverpaymentError
+    from apps.payments.exceptions import OverpaymentError  # noqa: PLC0415
 
     with pytest.raises(OverpaymentError, match="excede applied_rate"):
         register_payment(
@@ -226,10 +221,9 @@ def test_inconsistent_payment_total_when_loan_details_sum_drifted():
         applied_amount=Decimal("1.00"),
     )
 
-    real_sum = (
-        PaymentWorkdayDetail.objects.filter(payment=payment)
-        .aggregate(t=Sum("applied_amount"))["t"]
-    )
+    real_sum = PaymentWorkdayDetail.objects.filter(payment=payment).aggregate(
+        t=Sum("applied_amount"),
+    )["t"]
     assert (real_sum or Decimal("0")) > payment.total_amount
     # Esta condición es exactamente la que el servicio detecta.
     # Aquí la rama se ejercita solo si register_payment ve inconsistencia;
@@ -241,7 +235,7 @@ def test_inconsistent_payment_total_when_loan_details_sum_drifted():
 @pytest.mark.django_db
 def test_inconsistent_payment_total_helper_directly_raises():
     """Llamada directa al helper de consistencia con suma drifted."""
-    from apps.payments.services import _raise_if_inconsistent_total
+    from apps.payments.services import _raise_if_inconsistent_total  # noqa: PLC0415
 
     profile = WorkerProfileFactory()
     maestro = UserFactory(organization=profile.user.organization)

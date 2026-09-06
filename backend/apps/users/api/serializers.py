@@ -1,3 +1,10 @@
+"""Serializers DRF de ``apps.users``.
+
+`UserSerializer` y `WorkerProfileSerializer` solo exponen campos seguros.
+La contraseña generada solo aparece en la respuesta POST del endpoint
+que crea Trabajador (no en GET nunca).
+"""
+
 from __future__ import annotations
 
 from rest_framework import serializers
@@ -19,6 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
             "name",
             "phone",
             "organization_id",
+            "is_active",
             "is_staff",
             "is_superuser",
             "is_admin_plataforma",
@@ -30,8 +38,9 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined",
             "is_staff",
             "is_superuser",
-            "groups",
             "is_admin_plataforma",
+            "groups",
+            "password",  # nunca se expone.
         ]
 
     def get_groups(self, obj):
@@ -39,9 +48,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class WorkerProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    worker_id = serializers.IntegerField(source="id", read_only=True)
+    user = UserSerializer(required=False)
 
     class Meta:
         model = WorkerProfile
-        fields = ["worker_id", "user", "id_document", "hire_date", "is_active"]
+        fields = ["id", "user", "id_document", "hire_date", "is_active"]
+        read_only_fields = ["id"]

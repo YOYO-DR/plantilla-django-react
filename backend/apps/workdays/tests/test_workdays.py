@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -60,6 +61,19 @@ def test_workday_creation_sets_applied_rate_from_factor(
 ):
     workday_type.factor = "1.00"
     workday_type.save()
+    # El endpoint requiere permisos de maestro/admin para POST.
+    from django.contrib.auth.models import Group  # noqa: PLC0415
+
+    maestro, _ = Group.objects.get_or_create(name="Maestro")
+    worker_user.groups.add(maestro)
+    from apps.workdays.tests.factories import WorkerRateFactory  # noqa: PLC0415
+
+    WorkerRateFactory(
+        worker=worker_user.worker_profile,
+        amount="60000.00",
+        valid_from=date(2024, 1, 1),
+        valid_until=None,
+    )
     api = APIClient()
     api.force_authenticate(user=worker_user)
     resp = api.post(
@@ -71,9 +85,9 @@ def test_workday_creation_sets_applied_rate_from_factor(
         },
         format="json",
     )
-    assert resp.status_code == 201  # noqa: PLR2004
+    assert resp.status_code == 201
     wd = Workday.objects.get(date="2024-09-01")
-    assert wd.applied_rate == 0
+    assert wd.applied_rate == Decimal("60000.00")
 
 
 @pytest.mark.django_db
@@ -111,7 +125,7 @@ def test_workday_unique_constraint(
             worker=worker_user.worker_profile,
             date=date(2024, 9, 1),
         ).count()
-        == 2  # noqa: PLR2004
+        == 2
     )
     assert second.id is not None
 
@@ -137,10 +151,10 @@ def test_workday_list_query_count_is_optimal(
     api.force_authenticate(user=worker_user)
     with CaptureQueriesContext(connection) as ctx:
         resp = api.get("/api/workdays/")
-    assert resp.status_code == 200  # noqa: PLR2004
+    assert resp.status_code == 200
     # pytest-django + DRF añaden SAVEPOINT/RELEASE alrededor del SELECT.
     # Presupuesto = 1 query de listado + overhead transaccional.
-    assert len(ctx.captured_queries) <= 4, (  # noqa: PLR2004
+    assert len(ctx.captured_queries) <= 4, (
         f"Listado hace {len(ctx.captured_queries)} queries: "
         f"{[q['sql'] for q in ctx.captured_queries]}"
     )

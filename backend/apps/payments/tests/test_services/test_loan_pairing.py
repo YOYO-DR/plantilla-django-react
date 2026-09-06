@@ -14,17 +14,12 @@ from decimal import Decimal
 import pytest
 
 from apps.catalogs.tests.factories import PaymentMethodFactory
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
-
-from apps.payments.services import (
-    LoanAllocation,
-    create_loan,
-    register_payment,
-)
 from apps.payments.exceptions import LoanOverpaymentError
+from apps.payments.services import LoanAllocation
+from apps.payments.services import create_loan
+from apps.payments.services import register_payment
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 
 
 @pytest.mark.django_db
@@ -100,7 +95,7 @@ def test_allocation_for_nonexistent_loan_raises():
 
     # LoanAllocation con un ``Loan`` cuya id NO está en la queryset.
     # En la práctica: loan_nuevo es un Loan no persistido.
-    from apps.payments.models import Loan as LoanModel
+    from apps.payments.models import Loan as LoanModel  # noqa: PLC0415
 
     fantasma = LoanModel(
         worker=profile,

@@ -7,22 +7,16 @@ from decimal import Decimal
 
 import pytest
 
-from apps.catalogs.tests.factories import (
-    LoanStatusFactory,
-    PaymentMethodFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import LoanStatusFactory
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.organizations.tests.factories import OrganizationFactory
 from apps.payments.exceptions import CrossOrganizationError
 from apps.payments.models import Loan
-from apps.payments.services import (
-    LoanAllocation,
-    register_payment,
-)
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
+from apps.payments.services import LoanAllocation
+from apps.payments.services import register_payment
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.services import create_workday
 from apps.workdays.tests.factories import WorkerRateFactory
 

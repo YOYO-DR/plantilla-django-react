@@ -26,4 +26,4 @@ def test_workday_for_organization_isolates():
     assert Workday.objects.for_organization(org_a).first() == wd_a
     assert Workday.objects.for_organization(org_b).count() == 1
     # Mezcla no se devuelve cruzada.
-    assert Workday.objects.count() == 2  # noqa: PLR2004
+    assert Workday.objects.count() == 2

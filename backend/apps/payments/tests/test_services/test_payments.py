@@ -21,26 +21,20 @@ import pytest
 from django.db import IntegrityError
 from django.db import transaction
 
-from apps.catalogs.tests.factories import (
-    LoanStatusFactory,
-    PaymentMethodFactory,
-    PaymentStatusFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import LoanStatusFactory
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.organizations.tests.factories import OrganizationFactory
 from apps.payments.exceptions import CrossOrganizationError
 from apps.payments.exceptions import LoanOverpaymentError
 from apps.payments.exceptions import PaymentAlreadyVoidedError
-from apps.payments.models import Loan
 from apps.payments.models import Payment
-from apps.payments.models import PaymentLoanDetail
 from apps.payments.models import PaymentWorkdayDetail
 from apps.payments.services import LoanAllocation
 from apps.payments.services import create_loan
 from apps.payments.services import register_payment
 from apps.payments.services import void_payment
 from apps.payments.services import worker_balance
-from apps.payments.tests.factories import LoanFactory
 from apps.payments.tests.factories import PaymentFactory
 from apps.payments.tests.factories import PaymentWorkdayDetailFactory
 from apps.users.tests.factories import UserFactory
@@ -54,12 +48,14 @@ def _maestro_de_org(org):
 
 
 def _status(name):
-    from apps.payments.models import PaymentStatus
+    from apps.payments.models import PaymentStatus  # noqa: PLC0415
+
     return PaymentStatus.objects.get(name=name)
 
 
 def _loan_status(name):
-    from apps.payments.models import LoanStatus
+    from apps.payments.models import LoanStatus  # noqa: PLC0415
+
     return LoanStatus.objects.get(name=name)
 
 
@@ -442,7 +438,7 @@ def test_register_payment_double_payment_same_workday_raises_integrityerror():
 
 @pytest.mark.django_db
 def test_register_payment_cross_organization_rejected():
-    """Pago que mezcla worker de una org con workday de otra → ``CrossOrganizationError``."""
+    """Pago que mezcla worker de una org con workday de otra → ``CrossOrganizationError``."""  # noqa: E501
     org_a = OrganizationFactory(name="Org A")
     org_b = OrganizationFactory(name="Org B")
     worker_a = WorkerProfileFactory(user=UserFactory(organization=org_a))
@@ -505,7 +501,7 @@ def test_register_payment_cross_worker_loan_rejected():
 
 @pytest.mark.django_db
 def test_void_payment_reverts_mixed_payment():
-    """Pago mixto: tras anular, préstamo recupera saldo y jornadas vuelven a Pendiente."""
+    """Pago mixto: tras anular, préstamo recupera saldo y jornadas vuelven a Pendiente."""  # noqa: E501
     profile = WorkerProfileFactory()
     org = profile.user.organization
     maestro = _maestro_de_org(org)
@@ -650,7 +646,7 @@ def test_worker_balance_solo_pendientes():
         valid_until=None,
     )
     wd_type = WorkdayTypeFactory(name="Día completo", factor="1.00")
-    wds = [
+    [
         create_workday(
             worker=profile,
             workday_type=wd_type,
@@ -691,7 +687,7 @@ def test_worker_balance_workdays_parciales_y_prestamo_activo():
         date=date(2026, 3, 1),
         created_by=maestro,
     )
-    wd2 = create_workday(
+    create_workday(
         worker=profile,
         workday_type=wd_type,
         date=date(2026, 3, 2),
@@ -719,7 +715,7 @@ def test_worker_balance_workdays_parciales_y_prestamo_activo():
     bal = worker_balance(profile)
     # wd1 Parcial (adeudado 30000) + wd2 Pendiente (adeudado 60000) = 90000
     assert bal.adeudado_workdays == Decimal("90000.00")
-    # Loan: 200000 - 50000 = 150000
+    # Verificación del saldo del préstamo tras el pago parcial
     assert bal.saldo_prestamos == Decimal("150000.00")
     assert bal.neto_a_pagar == Decimal("240000.00")
     assert bal.pendientes_count == 1  # solo wd2
@@ -776,8 +772,9 @@ def test_register_payment_concurrent_no_negative_balance():
     """Dos ``register_payment`` simultáneos sobre el mismo préstamo no
     producen saldo negativo gracias a ``select_for_update``.
     """
-    import threading
-    from django.db import close_old_connections
+    import threading  # noqa: PLC0415
+
+    from django.db import close_old_connections  # noqa: PLC0415
 
     profile = WorkerProfileFactory()
     org = profile.user.organization

@@ -18,16 +18,14 @@ import pytest
 from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.payments.tests.factories import PaymentFactory
 from apps.payments.tests.factories import PaymentWorkdayDetailFactory
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.exceptions import NoActiveRateError
 from apps.workdays.exceptions import OverlappingRateError
 from apps.workdays.exceptions import WorkdayAlreadyPaidError
 from apps.workdays.models import Workday
-from apps.workdays.services import create_worker_rate
 from apps.workdays.services import create_workday
+from apps.workdays.services import create_worker_rate
 from apps.workdays.services import delete_workday
 from apps.workdays.services import update_workday
 from apps.workdays.tests.factories import WorkerRateFactory

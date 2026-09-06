@@ -1,10 +1,11 @@
-"""Serializers para jornadas de trabajo."""
+"""Serializers para jornadas de trabajo y tarifas."""
 
 from __future__ import annotations
 
 from rest_framework import serializers
 
 from apps.workdays.models import Workday
+from apps.workdays.models import WorkerRate
 
 
 class WorkdaySerializer(serializers.ModelSerializer):
@@ -27,3 +28,16 @@ class WorkdaySerializer(serializers.ModelSerializer):
             "applied_rate",
             "payment_status",
         ]
+
+
+class WorkerRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkerRate
+        fields = [
+            "id",
+            "worker",
+            "amount",
+            "valid_from",
+            "valid_until",
+        ]
+        read_only_fields = ["id"]

@@ -1,6 +1,6 @@
 """Tests for SimpleJWT auth endpoints with HttpOnly refresh cookie."""
 
-# ruff: noqa: S106, PLR2004
+# ruff: noqa: S106
 import pytest
 
 

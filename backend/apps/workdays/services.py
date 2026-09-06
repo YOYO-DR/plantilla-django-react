@@ -10,19 +10,22 @@ from datetime import date
 from datetime import timedelta
 from decimal import ROUND_HALF_UP
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import Q
 
 from apps.catalogs.models import PaymentStatus
-from apps.users.models import User
-from apps.users.models import WorkerProfile
 
 from .exceptions import NoActiveRateError
 from .exceptions import OverlappingRateError
 from .exceptions import WorkdayAlreadyPaidError
-from .models import WorkerRate
 from .models import Workday
+from .models import WorkerRate
+
+if TYPE_CHECKING:
+    from apps.users.models import User  # pragma: no cover
+    from apps.users.models import WorkerProfile  # pragma: no cover
 
 
 def _decimal_cents(value: Decimal) -> Decimal:
@@ -66,7 +69,11 @@ def create_worker_rate(
 
     # 1) Si la anterior tiene ``valid_until`` explícito que cubre o iguala
     #    ``valid_from``, hay solape verdadero → rechaza.
-    if anterior and anterior.valid_until is not None and anterior.valid_until >= valid_from:
+    if (
+        anterior
+        and anterior.valid_until is not None
+        and anterior.valid_until >= valid_from
+    ):
         msg = (
             f"Tarifa solapa con {anterior.amount} vigente desde "
             f"{anterior.valid_from} (vence {anterior.valid_until})."
@@ -102,11 +109,11 @@ def _vigente_rate_on(worker: WorkerProfile, on: date) -> WorkerRate | None:
     )
 
 
-def create_workday(
+def create_workday(  # noqa: PLR0913 — Fase B: contrato por dominio
     *,
     worker: WorkerProfile,
     workday_type,
-    date: date,  # noqa: A002 — shadow del builtin intencional (parámetro de dominio)
+    date: date,
     applied_rate: Decimal | None = None,
     notes: str = "",
     created_by: User,
@@ -126,8 +133,9 @@ def create_workday(
     if applied_rate is None:
         vigente = _vigente_rate_on(worker, date)
         if vigente is None:
+            msg = f"El trabajador {worker} no tiene tarifa vigente en {date}."
             raise NoActiveRateError(
-                f"El trabajador {worker} no tiene tarifa vigente en {date}.",
+                msg,
             )
         applied_rate = _decimal_cents(
             Decimal(vigente.amount) * Decimal(workday_type.factor),
@@ -152,7 +160,7 @@ def create_workday(
 
 def _has_payment_details(workday: Workday) -> bool:
     """¿La jornada tiene algún ``PaymentWorkdayDetail`` de un pago NO anulado?"""
-    from apps.payments.models import PaymentWorkdayDetail  # local import (evita ciclo)
+    from apps.payments.models import PaymentWorkdayDetail  # noqa: PLC0415
 
     return PaymentWorkdayDetail.objects.filter(
         workday=workday,
@@ -165,7 +173,7 @@ def update_workday(
     *,
     workday: Workday,
     workday_type=None,
-    date: date | None = None,  # noqa: A002
+    date: date | None = None,
     notes: str | None = None,
 ) -> Workday:
     """Actualiza campos editables de una jornada.
@@ -176,8 +184,7 @@ def update_workday(
     """
     if _has_payment_details(workday):
         msg = (
-            f"La jornada {workday.id} ya tiene pagos aplicados y no se "
-            "puede modificar."
+            f"La jornada {workday.id} ya tiene pagos aplicados y no se puede modificar."
         )
         raise WorkdayAlreadyPaidError(msg)
 
@@ -196,8 +203,7 @@ def delete_workday(*, workday: Workday) -> None:
     """Elimina una jornada si no tiene pagos aplicados."""
     if _has_payment_details(workday):
         msg = (
-            f"La jornada {workday.id} ya tiene pagos aplicados y no se "
-            "puede eliminar."
+            f"La jornada {workday.id} ya tiene pagos aplicados y no se puede eliminar."
         )
         raise WorkdayAlreadyPaidError(msg)
     workday.delete()

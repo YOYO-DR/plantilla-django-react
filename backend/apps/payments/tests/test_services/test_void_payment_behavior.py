@@ -12,16 +12,12 @@ from freezegun import freeze_time
 
 from apps.catalogs.tests.factories import PaymentMethodFactory
 from apps.payments.exceptions import PaymentAlreadyVoidedError
-from apps.payments.services import (
-    LoanAllocation,
-    create_loan,
-    register_payment,
-    void_payment,
-)
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
+from apps.payments.services import LoanAllocation
+from apps.payments.services import create_loan
+from apps.payments.services import register_payment
+from apps.payments.services import void_payment
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 
 
 @pytest.mark.django_db
@@ -137,7 +133,7 @@ def test_void_payment_preserves_condonado_status():
 
     # Forzar manualmente status a Condonado para simular "el préstamo
     # pasó a Pagado → después el maestro decide Condonarlo".
-    from apps.payments.models import LoanStatus
+    from apps.payments.models import LoanStatus  # noqa: PLC0415
 
     condonado = LoanStatus.objects.get(name="Condonado")
     loan.status = condonado
@@ -157,7 +153,7 @@ def test_void_payment_preserves_condonado_status():
 
 @pytest.mark.django_db
 def test_void_payment_active_loan_becomes_activo_after_reverse():
-    """Si el préstamo estaba Activo antes del pago, tras anular vuelve a Activo con saldo pendiente."""
+    """Si el préstamo estaba Activo antes del pago, tras anular vuelve a Activo con saldo pendiente."""  # noqa: E501
     profile = WorkerProfileFactory()
     maestro = UserFactory(organization=profile.user.organization)
     loan = create_loan(

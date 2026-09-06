@@ -1,6 +1,5 @@
 import uuid
 
-# ruff: noqa: PLR2004 (magic HTTP status 200/401 son valores de test, no constantes)
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection

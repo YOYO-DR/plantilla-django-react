@@ -19,26 +19,20 @@ from decimal import Decimal
 import pytest
 from django.db.models import Sum
 
-from apps.catalogs.tests.factories import (
-    PaymentMethodFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.payments.models import Payment
 from apps.payments.models import PaymentWorkdayDetail
-from apps.payments.services import (
-    LoanAllocation,
-    create_loan,
-    register_payment,
-)
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
+from apps.payments.services import LoanAllocation
+from apps.payments.services import create_loan
+from apps.payments.services import register_payment
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.services import create_workday
 from apps.workdays.tests.factories import WorkerRateFactory
 
 
-def _cents(value: Decimal | int | float | str) -> Decimal:
+def _cents(value: Decimal | float | str) -> Decimal:
     return Decimal(value).quantize(Decimal("0.01"))
 
 
@@ -69,10 +63,9 @@ def test_register_payment_persisted_sum_matches_total_workday_only():
         loan_allocations=[],
         created_by=maestro,
     )
-    wd_sum = (
-        PaymentWorkdayDetail.objects.filter(payment=payment)
-        .aggregate(t=Sum("applied_amount"))["t"]
-    )
+    wd_sum = PaymentWorkdayDetail.objects.filter(payment=payment).aggregate(
+        t=Sum("applied_amount"),
+    )["t"]
     assert _cents(wd_sum) == _cents(payment.total_amount)
 
 
@@ -110,12 +103,9 @@ def test_register_payment_persisted_sum_matches_total_mixed():
         created_by=maestro,
     )
 
-    real = (
-        Payment.objects.filter(id=payment.id)
-        .aggregate(
-            wd=Sum("workday_details__applied_amount"),
-            ln=Sum("loan_details__paid_amount"),
-        )
+    real = Payment.objects.filter(id=payment.id).aggregate(
+        wd=Sum("workday_details__applied_amount"),
+        ln=Sum("loan_details__paid_amount"),
     )
     real_total = (real["wd"] or Decimal("0")) + (real["ln"] or Decimal("0"))
     assert _cents(real_total) == _cents(payment.total_amount)
