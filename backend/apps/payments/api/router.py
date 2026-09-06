@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from .viewsets import LoanViewSet
 from .viewsets import PaymentViewSet
+from .viewsets import PreviewPaymentView
 from .viewsets import WorkerBalanceView
 
 router = DefaultRouter()
@@ -16,6 +17,11 @@ urlpatterns = [
         "workers/<int:worker_id>/balance/",
         WorkerBalanceView.as_view(),
         name="worker-balance",
+    ),
+    path(
+        "payments/preview/",
+        PreviewPaymentView.as_view(),
+        name="payment-preview",
     ),
     *router.urls,
 ]

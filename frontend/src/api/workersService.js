@@ -53,6 +53,11 @@ export const workersService = {
     }),
   registerPayment: (data) =>
     request("/payments/", { method: "POST", body: JSON.stringify(data) }),
+  previewPayment: (data) =>
+    request("/payments/preview/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   voidPayment: (id) =>
     request(`/payments/${id}/void/`, { method: "POST" }),
 };

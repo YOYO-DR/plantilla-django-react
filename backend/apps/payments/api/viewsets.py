@@ -18,6 +18,7 @@ from apps.payments.models import Loan
 from apps.payments.models import Payment
 from apps.payments.services import LoanAllocation
 from apps.payments.services import create_loan
+from apps.payments.services import preview_payment
 from apps.payments.services import register_payment
 from apps.payments.services import void_payment
 from apps.payments.services import worker_balance
@@ -328,7 +329,17 @@ class PaymentViewSet(
 
 
 class WorkerBalanceView(APIView):
-    """GET /api/workers/{id}/balance/ — expone ``worker_balance``."""
+    """GET /api/workers/{id}/balance/ — expone ``worker_balance``.
+
+    Payload (Fase D2-bis):
+    - 5 agregados previos (compatibilidad con consumidores existentes).
+    - ``workdays``: lista de jornadas pendientes/parciales con
+      ``id``, ``date`` (YYYY-MM-DD), ``workday_type`` (``id``+``name``),
+      ``applied_rate``, ``ya_pagado`` y ``pendiente``. Las pagadas NO
+      aparecen.
+    - ``loans``: lista de préstamos activos con ``id``, ``date``,
+      ``reason``, ``amount``, ``outstanding_balance``.
+    """
 
     permission_classes = [IsOrganizationMember]
     serializer_class = drf_serializers.Serializer  # placeholder para OpenAPI
@@ -356,6 +367,112 @@ class WorkerBalanceView(APIView):
                 "adeudado_workdays": str(bal.adeudado_workdays),
                 "saldo_prestamos": str(bal.saldo_prestamos),
                 "neto_a_pagar": str(bal.neto_a_pagar),
+                "workdays": [
+                    {
+                        "id": line.id,
+                        "date": line.date.isoformat(),
+                        "workday_type": {
+                            "id": line.workday_type_id,
+                            "name": line.workday_type_name,
+                        },
+                        "applied_rate": str(line.applied_rate),
+                        "ya_pagado": str(line.ya_pagado),
+                        "pendiente": str(line.pendiente),
+                    }
+                    for line in bal.workdays
+                ],
+                "loans": [
+                    {
+                        "id": line.id,
+                        "date": line.date.isoformat(),
+                        "reason": line.reason,
+                        "amount": str(line.amount),
+                        "outstanding_balance": str(line.outstanding_balance),
+                    }
+                    for line in bal.loans
+                ],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PreviewPaymentView(APIView):
+    """POST /api/payments/preview/ — calcula el costo de un pago SIN persistir.
+
+    Body: mismo que ``RegisterPaymentSerializer``
+    (``worker``, ``workday_ids``, ``loan_allocations``, ``workday_overrides``).
+    ``payment_method`` y ``payment_date`` se aceptan pero se ignoran
+    para el cálculo (la regla es la misma; solo no toca BD).
+
+    Respuesta:
+        ``subtotal_workdays``: Decimal como string.
+        ``total_abonos_prestamos``: Decimal como string.
+        ``total_amount``: Decimal como string (bruto, igual que
+        ``Payment.total_amount``).
+        ``saldo_prestamos_despues``: dict ``{loan_id: Decimal}`` con el
+        saldo que quedaría en cada préstamo tras aplicar el pago.
+
+    Validaciones (vía ``preview_payment``):
+        - sobrepago de jornada → 409 (``OverpaymentError``).
+        - sobrepago de préstamo → 409 (``LoanOverpaymentError``).
+        - cross-org → 404 (``CrossOrganizationError``).
+
+    No persiste nada: ``Payment.objects.count()`` no cambia.
+    """
+
+    permission_classes = [IsMaestroOrAdminPlataforma]
+    serializer_class = RegisterPaymentSerializer  # mismo body que el POST real.
+
+    def post(self, request):
+        s = RegisterPaymentSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = s.validated_data
+
+        from apps.users.models import WorkerProfile  # noqa: PLC0415
+
+        try:
+            worker = WorkerProfile.objects.get(id=data["worker"])
+        except WorkerProfile.DoesNotExist:
+            return Response(
+                {"detail": "Trabajador no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        denied = _ensure_worker_in_callers_org(request.user, worker)
+        if denied is not None:
+            return denied
+
+        # Loan allocations: traer Loan por id (mismo patrón que el POST real).
+        allocs: list[LoanAllocation] = []
+        for la in data["loan_allocations"]:
+            try:
+                ln = Loan.objects.get(id=la["loan"])
+            except Loan.DoesNotExist:
+                return Response(
+                    {
+                        "detail": (f"Préstamo {la['loan']} no encontrado."),
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            allocs.append(LoanAllocation(loan=ln, amount=la["amount"]))
+
+        breakdown = preview_payment(
+            worker=worker,
+            workday_ids=list(data["workday_ids"]),
+            loan_allocations=allocs,
+            workday_overrides={
+                int(k): v for k, v in (data.get("workday_overrides") or {}).items()
+            },
+        )
+        return Response(
+            {
+                "subtotal_workdays": str(breakdown.subtotal_workdays),
+                "total_abonos_prestamos": str(breakdown.total_abonos_prestamos),
+                "total_amount": str(breakdown.total_amount),
+                "saldo_prestamos_despues": {
+                    str(loan_id): str(saldo)
+                    for loan_id, saldo in breakdown.saldo_prestamos_despues.items()
+                },
             },
             status=status.HTTP_200_OK,
         )

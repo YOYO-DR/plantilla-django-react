@@ -120,14 +120,46 @@ class LoanAllocation:
 
 
 @dataclass
+class WorkdayBalanceLine:
+    """Una jornada con saldo pendiente, lista para que la UI la pinte."""
+
+    id: int
+    date: date
+    workday_type_id: int
+    workday_type_name: str
+    applied_rate: Decimal
+    ya_pagado: Decimal
+    pendiente: Decimal
+
+
+@dataclass
+class LoanBalanceLine:
+    """Un préstamo activo con su saldo pendiente."""
+
+    id: int
+    date: date
+    reason: str
+    amount: Decimal
+    outstanding_balance: Decimal
+
+
+@dataclass
 class WorkerBalance:
-    """Resumen de cuenta de un trabajador."""
+    """Resumen de cuenta de un trabajador.
+
+    Mantiene los 5 agregados originales para no romper consumidores
+    existentes (frontend ya consume estos campos) y suma el desglose
+    por jornada y préstamo para que la UI pueda pintar el detalle
+    sin recalcular nada en cliente.
+    """
 
     worker_id: int
     pendientes_count: int = 0
     adeudado_workdays: Decimal = field(default_factory=lambda: Decimal("0.00"))
     saldo_prestamos: Decimal = field(default_factory=lambda: Decimal("0.00"))
     neto_a_pagar: Decimal = field(default_factory=lambda: Decimal("0.00"))
+    workdays: list[WorkdayBalanceLine] = field(default_factory=list)
+    loans: list[LoanBalanceLine] = field(default_factory=list)
 
 
 @transaction.atomic
@@ -268,6 +300,48 @@ class _LoanAmount:
     pre_void_status: LoanStatus | None = None
 
 
+@dataclass
+class PaymentBreakdown:
+    """Cálculo monetario de un pago sin efectos de BD.
+
+    Función pura sobre los ``_WorkdayAmount`` / ``_LoanAmount``
+    ya construidos y validados. La usan tanto ``register_payment``
+    (persiste) como ``preview_payment`` (no persiste). Si los dos
+    divergen, la pantalla le miente al maestro.
+    """
+
+    subtotal_workdays: Decimal
+    total_abonos_prestamos: Decimal
+    total_amount: Decimal
+    saldo_prestamos_despues: dict[int, Decimal]
+
+
+def _compute_payment_breakdown(
+    *,
+    workday_amounts: list[_WorkdayAmount],
+    loan_amounts: list[_LoanAmount],
+) -> PaymentBreakdown:
+    """Suma pura: sin tocar BD, sin lock. La regla vive aquí."""
+    subtotal_workdays = _cents(
+        sum((wa.applied_amount for wa in workday_amounts), Decimal("0")),
+    )
+    total_abonos = _cents(sum((la.amount for la in loan_amounts), Decimal("0")))
+    total_amount = _cents(subtotal_workdays + total_abonos)
+    saldo_despues: dict[int, Decimal] = {}
+    for la in loan_amounts:
+        nuevo_saldo = _cents(la.loan.outstanding_balance) - la.amount
+        # Defensivo: _validate_loan_state ya rechaza sobrepago, así que
+        # nuevo_saldo nunca debería ser < 0 aquí.
+        nuevo_saldo = max(nuevo_saldo, Decimal("0"))  # pragma: no cover
+        saldo_despues[la.loan.id] = nuevo_saldo
+    return PaymentBreakdown(
+        subtotal_workdays=subtotal_workdays,
+        total_abonos_prestamos=total_abonos,
+        total_amount=total_amount,
+        saldo_prestamos_despues=saldo_despues,
+    )
+
+
 def _build_loan_amounts(
     *,
     loans_by_id: dict[int, Loan],
@@ -293,8 +367,42 @@ def _build_loan_amounts(
     return pairs
 
 
+def _validate_loan_state(
+    *,
+    loans: list[Loan],
+    loan_allocations: list[LoanAllocation],
+) -> None:
+    """Reglas de estado + saldo: Pagado/Condonado/saldo 0/sobrepago.
+
+    Compartida por ``register_payment`` y ``preview_payment`` para que
+    ambos rechacen con los mismos motivos.
+    """
+    allocations_by_id = {la.loan.id: la for la in loan_allocations}
+    status_pag = _loan_status_pagado()
+    status_cond = _loan_status_condonado()
+    for loan in loans:
+        if loan.status_id == status_pag.id:
+            msg = f"El préstamo {loan.id} ya está Pagado."
+            raise LoanOverpaymentError(msg)
+        if loan.status_id == status_cond.id:
+            msg = f"El préstamo {loan.id} está Condonado; no admite abonos."
+            raise LoanOverpaymentError(msg)
+        if loan.outstanding_balance <= Decimal("0"):
+            msg = f"El préstamo {loan.id} tiene saldo 0."
+            raise LoanOverpaymentError(msg)
+        alloc = allocations_by_id.get(loan.id)
+        if alloc is not None and _cents(alloc.amount) > _cents(
+            loan.outstanding_balance,
+        ):
+            msg = (
+                f"Abono {alloc.amount} excede saldo {loan.outstanding_balance} "
+                f"del préstamo {loan.id}."
+            )
+            raise LoanOverpaymentError(msg)
+
+
 @transaction.atomic
-def register_payment(  # noqa: PLR0913, C901 — Fase B: contrato por dominio
+def register_payment(  # noqa: PLR0913 — Fase B: contrato por dominio
     *,
     worker: WorkerProfile,
     payment_method: PaymentMethod,
@@ -327,50 +435,20 @@ def register_payment(  # noqa: PLR0913, C901 — Fase B: contrato por dominio
         allocations=loan_allocations,
     )
 
-    status_act = _loan_status_activo()
-    status_pag = _loan_status_pagado()
-    status_cond = _loan_status_condonado()
+    _validate_loan_state(loans=loans, loan_allocations=loan_allocations)
 
-    # Validar saldo + estado antes de cualquier mutación.
-    allocations_by_id = {la.loan.id: la for la in loan_allocations}
-    for loan in loans:
-        if loan.status_id == status_pag.id:
-            msg = f"El préstamo {loan.id} ya está Pagado."
-            raise LoanOverpaymentError(
-                msg,
-            )
-        if loan.status_id == status_cond.id:
-            msg = f"El préstamo {loan.id} está Condonado; no admite abonos."
-            raise LoanOverpaymentError(
-                msg,
-            )
-        if loan.outstanding_balance <= Decimal("0"):
-            msg = f"El préstamo {loan.id} tiene saldo 0."
-            raise LoanOverpaymentError(
-                msg,
-            )
-        alloc = allocations_by_id.get(loan.id)
-        if alloc is not None and _cents(alloc.amount) > _cents(
-            loan.outstanding_balance,
-        ):
-            msg = (
-                f"Abono {alloc.amount} excede saldo {loan.outstanding_balance} "
-                f"del préstamo {loan.id}."
-            )
-            raise LoanOverpaymentError(
-                msg,
-            )
-
-    # Subtotal BRUTO = suma de detalles (jornadas + préstamos).
-    total = _cents(
-        sum((wa.applied_amount for wa in workday_amounts), Decimal("0"))
-        + sum((la.amount for la in loan_amounts), Decimal("0")),
+    # Total BRUTO = suma de detalles (jornadas + préstamos). Sale de la
+    # función pura ``_compute_payment_breakdown`` que ``preview_payment``
+    # también usa; regla en un solo sitio.
+    breakdown = _compute_payment_breakdown(
+        workday_amounts=workday_amounts,
+        loan_amounts=loan_amounts,
     )
 
     payment = Payment.objects.create(
         worker=worker,
         payment_method=payment_method,
-        total_amount=total,
+        total_amount=breakdown.total_amount,
         payment_date=payment_date,
         notes="",
         created_by=created_by,
@@ -396,6 +474,8 @@ def register_payment(  # noqa: PLR0913, C901 — Fase B: contrato por dominio
     _raise_if_inconsistent_total(payment)
 
     # Aplicar abonos a préstamos.
+    status_act = _loan_status_activo()
+    status_pag = _loan_status_pagado()
     for la in loan_amounts:
         nuevo_saldo = _cents(la.loan.outstanding_balance) - la.amount
         if nuevo_saldo <= Decimal("0"):
@@ -475,32 +555,112 @@ def void_payment(*, payment: Payment, voided_by: User) -> Payment:
     return payment
 
 
+def preview_payment(
+    *,
+    worker: WorkerProfile,
+    workday_ids: list[int],
+    loan_allocations: list[LoanAllocation],
+    workday_overrides: dict[int, Decimal] | None = None,
+) -> PaymentBreakdown:
+    """Calcula lo que costaría un pago sin persistir nada.
+
+    Comparte las validaciones con ``register_payment`` (sobrepago,
+    Pagado/Condonado, cross-org). Si los dos divergen, la pantalla le
+    miente al maestro. La regla vive en un solo sitio: las funciones
+    puras ``_build_*_amounts``, ``_validate_loan_state`` y
+    ``_compute_payment_breakdown``.
+
+    Notas:
+    - No usa ``select_for_update`` porque no muta; las validaciones son
+      suficientes para detectar sobrepago.
+    - Levanta ``OverpaymentError`` / ``LoanOverpaymentError`` /
+      ``CrossOrganizationError`` igual que ``register_payment``.
+    """
+    workdays = list(Workday.objects.filter(id__in=workday_ids))
+    requested_loan_ids = [la.loan.id for la in loan_allocations]
+    loans = list(Loan.objects.filter(id__in=requested_loan_ids))
+    loans_by_id = {loan_obj.id: loan_obj for loan_obj in loans}
+
+    _ensure_same_org(worker=worker, workdays=workdays, loans=loans)
+
+    workday_amounts = _build_workday_amounts(
+        workdays=workdays,
+        overrides=workday_overrides,
+    )
+    loan_amounts = _build_loan_amounts(
+        loans_by_id=loans_by_id,
+        allocations=loan_allocations,
+    )
+    _validate_loan_state(loans=loans, loan_allocations=loan_allocations)
+    return _compute_payment_breakdown(
+        workday_amounts=workday_amounts,
+        loan_amounts=loan_amounts,
+    )
+
+
 def worker_balance(worker: WorkerProfile) -> WorkerBalance:
-    """Resumen: pendientes, adeudado, saldo de préstamos, neto a pagar."""
+    """Resumen: pendientes, adeudado, saldo de préstamos, neto a pagar.
+
+    Devuelve además el desglose por jornada y préstamo para que la UI
+    pueda pintar el detalle sin recalcular nada en cliente. Las
+    pagadas (``payment_status = Pagado``) NO aparecen en ``workdays``;
+    las parciales SÍ, con su ``pendiente`` real.
+    """
     status_pend = _payment_status_pendiente()
     status_par, _ = PaymentStatus.objects.get_or_create(
         name="Parcial",
         defaults={"order": 1, "is_active": True},
     )
 
-    adeudado_qs = Workday.objects.filter(worker=worker).filter(
-        payment_status__in=[status_pend, status_par],
+    adeudado_qs = (
+        Workday.objects.filter(worker=worker)
+        .filter(payment_status__in=[status_pend, status_par])
+        .select_related("workday_type")
+        .order_by("date", "id")
     )
+    workday_lines: list[WorkdayBalanceLine] = []
     adeudado_total = Decimal("0")
     for wd in adeudado_qs:
         ya_pagado = PaymentWorkdayDetail.objects.filter(
             workday=wd,
             payment__voided_at__isnull=True,
         ).aggregate(t=Sum("applied_amount"))["t"] or Decimal("0")
-        adeudado_total += _cents(wd.applied_rate) - _cents(ya_pagado)
+        ya_pagado = _cents(ya_pagado)
+        pendiente = _cents(wd.applied_rate) - ya_pagado
+        adeudado_total += pendiente
+        workday_lines.append(
+            WorkdayBalanceLine(
+                id=wd.id,
+                date=wd.date,
+                workday_type_id=wd.workday_type_id,
+                workday_type_name=wd.workday_type.name,
+                applied_rate=_cents(wd.applied_rate),
+                ya_pagado=ya_pagado,
+                pendiente=pendiente,
+            ),
+        )
 
     status_act = _loan_status_activo()
-    saldo_qs = Loan.objects.filter(worker=worker, status=status_act)
-    saldo_total = saldo_qs.aggregate(t=Sum("outstanding_balance"))["t"] or Decimal("0")
+    saldo_qs = Loan.objects.filter(worker=worker, status=status_act).order_by(
+        "-date",
+        "-id",
+    )
+    loan_lines: list[LoanBalanceLine] = [
+        LoanBalanceLine(
+            id=loan.id,
+            date=loan.date,
+            reason=loan.reason or "",
+            amount=_cents(loan.amount),
+            outstanding_balance=_cents(loan.outstanding_balance),
+        )
+        for loan in saldo_qs
+    ]
+    saldo_total = sum(
+        (line.outstanding_balance for line in loan_lines),
+        Decimal("0"),
+    )
 
-    pendientes_count = adeudado_qs.filter(
-        payment_status=status_pend,
-    ).count()
+    pendientes_count = adeudado_qs.filter(payment_status=status_pend).count()
 
     neto = _cents(adeudado_total) + _cents(saldo_total)
 
@@ -510,4 +670,6 @@ def worker_balance(worker: WorkerProfile) -> WorkerBalance:
         adeudado_workdays=_cents(adeudado_total),
         saldo_prestamos=_cents(saldo_total),
         neto_a_pagar=neto,
+        workdays=workday_lines,
+        loans=loan_lines,
     )
