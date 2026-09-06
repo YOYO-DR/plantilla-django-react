@@ -20,6 +20,7 @@ from apps.payments.models import Payment
 from apps.payments.services import LoanAllocation
 from apps.payments.services import create_loan
 from apps.payments.services import register_payment
+from apps.payments.services import void_payment
 from apps.users.tests.factories import UserFactory
 from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.services import create_workday
@@ -270,3 +271,266 @@ def test_preview_view_as_trabajador_returns_403():
         format="json",
     )
     assert resp.status_code == 403
+
+
+# =====================================================================
+# Serializer: auditoría y desglose en PaymentDetail / LoanSerializer
+# =====================================================================
+
+
+@pytest.mark.django_db
+def test_payment_detail_voided_fields_for_active_and_voided_payments():
+    """Pago vigente: voided_at/voided_by nulos. Anulado: con timestamp
+    y nombre legible del usuario que anuló."""
+    org = OrganizationFactory(name="Org audit")
+    profile = WorkerProfileFactory(user__organization=org)
+    maestro = _maestro_de_org(org)
+    admin = _maestro_de_org(org)
+    admin.name = "Ana Pérez"
+    admin.save()
+    WorkerRateFactory(
+        worker=profile,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
+    )
+    wd_type = WorkdayTypeFactory(name="Día completo", factor="1.00")
+    wds = [
+        create_workday(
+            worker=profile,
+            workday_type=wd_type,
+            date=date(2026, 3, day),
+            created_by=maestro,
+        )
+        for day in range(1, 3)
+    ]
+    pm = PaymentMethodFactory(name="Efectivo")
+
+    # Pago activo (no anulado).
+    active = register_payment(
+        worker=profile,
+        payment_method=pm,
+        payment_date=date(2026, 3, 5),
+        workday_ids=[wds[0].id],
+        loan_allocations=[],
+        created_by=maestro,
+    )
+    # Pago que luego anulamos.
+    to_void = register_payment(
+        worker=profile,
+        payment_method=pm,
+        payment_date=date(2026, 3, 6),
+        workday_ids=[wds[1].id],
+        loan_allocations=[],
+        created_by=maestro,
+    )
+    void_payment(payment=to_void, voided_by=admin)
+
+    api = APIClient()
+    api.force_authenticate(user=maestro)
+    resp = api.get(f"/api/payments/{active.id}/")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["voided_at"] is None
+    assert body["voided_by"] is None
+
+    resp = api.get(f"/api/payments/{to_void.id}/")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["voided_at"] is not None
+    # Nombre legible, no id.
+    assert body["voided_by"] == "Ana Pérez"
+
+
+@pytest.mark.django_db
+def test_payment_detail_breakdown_for_mixed_payment():
+    """Pago mixto: workday_details + loan_details con montos correctos."""
+    org = OrganizationFactory(name="Org breakdown")
+    profile = WorkerProfileFactory(user__organization=org)
+    maestro = _maestro_de_org(org)
+    WorkerRateFactory(
+        worker=profile,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
+    )
+    wd_type = WorkdayTypeFactory(name="Día completo", factor="1.00")
+    wds = [
+        create_workday(
+            worker=profile,
+            workday_type=wd_type,
+            date=date(2026, 3, day),
+            created_by=maestro,
+        )
+        for day in range(1, 3)
+    ]
+    loan = create_loan(
+        worker=profile,
+        amount=Decimal("100000.00"),
+        date=date(2026, 1, 1),
+        reason="Adelanto",
+        created_by=maestro,
+    )
+    pm = PaymentMethodFactory(name="Efectivo")
+    payment = register_payment(
+        worker=profile,
+        payment_method=pm,
+        payment_date=date(2026, 3, 5),
+        workday_ids=[wds[0].id, wds[1].id],
+        loan_allocations=[LoanAllocation(loan=loan, amount=Decimal("20000.00"))],
+        created_by=maestro,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=maestro)
+    resp = api.get(f"/api/payments/{payment.id}/")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # 2 detalles de jornada con workday completo (id, date, workday_type).
+    assert len(body["workday_details"]) == 2
+    wd_amounts = sorted(
+        [Decimal(d["applied_amount"]) for d in body["workday_details"]],
+    )
+    assert wd_amounts == [Decimal("50000.00"), Decimal("50000.00")]
+    for d in body["workday_details"]:
+        assert set(d["workday"].keys()) == {"id", "date", "workday_type"}
+        assert d["workday"]["workday_type"]["name"] == "Día completo"
+
+    # 1 detalle de préstamo con loan completo (id, reason).
+    assert len(body["loan_details"]) == 1
+    loan_detail = body["loan_details"][0]
+    assert Decimal(loan_detail["paid_amount"]) == Decimal("20000.00")
+    assert loan_detail["loan"]["id"] == loan.id
+    assert loan_detail["loan"]["reason"] == "Adelanto"
+
+
+@pytest.mark.django_db
+def test_loan_detail_payment_details_listing():
+    """Préstamo con 2 abonos: ambos en ``payment_details``."""
+    org = OrganizationFactory(name="Org loans-list")
+    profile = WorkerProfileFactory(user__organization=org)
+    maestro = _maestro_de_org(org)
+    loan = create_loan(
+        worker=profile,
+        amount=Decimal("100000.00"),
+        date=date(2026, 1, 1),
+        reason="Adelanto",
+        created_by=maestro,
+    )
+    pm = PaymentMethodFactory(name="Efectivo")
+    register_payment(
+        worker=profile,
+        payment_method=pm,
+        payment_date=date(2026, 3, 5),
+        workday_ids=[],
+        loan_allocations=[LoanAllocation(loan=loan, amount=Decimal("30000.00"))],
+        created_by=maestro,
+    )
+    register_payment(
+        worker=profile,
+        payment_method=pm,
+        payment_date=date(2026, 3, 12),
+        workday_ids=[],
+        loan_allocations=[LoanAllocation(loan=loan, amount=Decimal("20000.00"))],
+        created_by=maestro,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=maestro)
+    resp = api.get(f"/api/loans/{loan.id}/")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["payment_details"]) == 2
+    amounts = sorted(
+        [Decimal(d["paid_amount"]) for d in body["payment_details"]],
+    )
+    assert amounts == [Decimal("20000.00"), Decimal("30000.00")]
+
+
+@pytest.mark.django_db
+def test_payment_list_query_count_is_constant(django_assert_num_queries):
+    """Listar N pagos no dispara N+1: el queryset trae los detalles con
+    prefetch_related. ``assertNumQueries`` fija un techo concreto para
+    que nadie pueda degradarlo sin enterarse."""
+    org = OrganizationFactory(name="Org perf")
+    profile = WorkerProfileFactory(user__organization=org)
+    maestro = _maestro_de_org(org)
+    WorkerRateFactory(
+        worker=profile,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
+    )
+    wd_type = WorkdayTypeFactory(name="Día completo", factor="1.00")
+    pm = PaymentMethodFactory(name="Efectivo")
+    loan = create_loan(
+        worker=profile,
+        amount=Decimal("200000.00"),
+        date=date(2026, 1, 1),
+        created_by=maestro,
+    )
+    # 5 pagos, cada uno con 1 workday + 1 abono a préstamo.
+    for i in range(5):
+        wd = create_workday(
+            worker=profile,
+            workday_type=wd_type,
+            date=date(2026, 3, i + 1),
+            created_by=maestro,
+        )
+        register_payment(
+            worker=profile,
+            payment_method=pm,
+            payment_date=date(2026, 3, 10 + i),
+            workday_ids=[wd.id],
+            loan_allocations=[LoanAllocation(loan=loan, amount=Decimal("1000.00"))],
+            created_by=maestro,
+        )
+
+    api = APIClient()
+    api.force_authenticate(user=maestro)
+    with django_assert_num_queries(7):
+        # 7 ≈ 1 list + prefetch workday_details__workday__workday_type
+        # (2 queries: workday + workday_type) + prefetch loan_details__loan
+        # + count. Lo importante es que es constante: si fueran 5 pagos
+        # con detalles anidados sin prefetch serían ~20+ queries.
+        resp = api.get("/api/payments/")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 5
+
+
+@pytest.mark.django_db
+def test_payment_detail_cross_org_returns_404():
+    org_a = OrganizationFactory(name="Org A audit")
+    org_b = OrganizationFactory(name="Org B audit")
+    g, _ = Group.objects.get_or_create(name="Maestro")
+    maestro_a_user = UserFactory(organization=org_a)
+    maestro_a_user.groups.add(g)
+    profile_b = WorkerProfileFactory(user=UserFactory(organization=org_b))
+    WorkerRateFactory(
+        worker=profile_b,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
+    )
+    wd_type = WorkdayTypeFactory(name="Día completo", factor="1.00")
+    wd = create_workday(
+        worker=profile_b,
+        workday_type=wd_type,
+        date=date(2026, 3, 1),
+        created_by=UserFactory(organization=org_b),
+    )
+    pm = PaymentMethodFactory(name="Efectivo")
+    payment = register_payment(
+        worker=profile_b,
+        payment_method=pm,
+        payment_date=date(2026, 3, 5),
+        workday_ids=[wd.id],
+        loan_allocations=[],
+        created_by=UserFactory(organization=org_b),
+    )
+    api = APIClient()
+    api.force_authenticate(user=maestro_a_user)
+    resp = api.get(f"/api/payments/{payment.id}/")
+    assert resp.status_code == 404

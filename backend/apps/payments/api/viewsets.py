@@ -16,6 +16,8 @@ from rest_framework.viewsets import GenericViewSet
 
 from apps.payments.models import Loan
 from apps.payments.models import Payment
+from apps.payments.models import PaymentLoanDetail
+from apps.payments.models import PaymentWorkdayDetail
 from apps.payments.services import LoanAllocation
 from apps.payments.services import create_loan
 from apps.payments.services import preview_payment
@@ -26,29 +28,6 @@ from apps.users.permissions import IsMaestroOrAdminPlataforma
 from apps.users.permissions import IsOrganizationMember
 
 # Serializers inlined -----------------------------------------------
-
-
-class LoanSerializer(drf_serializers.ModelSerializer):
-    class Meta:
-        model = Loan
-        fields = [
-            "id",
-            "worker",
-            "status",
-            "amount",
-            "outstanding_balance",
-            "date",
-            "reason",
-            "created_by",
-            "created_at",
-        ]
-        read_only_fields = [
-            "id",
-            "outstanding_balance",
-            "status",
-            "created_by",
-            "created_at",
-        ]
 
 
 class LoanAllocationField(drf_serializers.DictField):
@@ -109,11 +88,105 @@ class RegisterPaymentSerializer(drf_serializers.Serializer):
     )
 
 
+class PaymentWorkdayDetailSerializer(drf_serializers.ModelSerializer):
+    """Detalle de jornada cubierto por un pago (historial de pagos)."""
+
+    workday = drf_serializers.SerializerMethodField()
+
+    def get_workday(self, obj):
+        wd = obj.workday
+        return {
+            "id": wd.id,
+            "date": wd.date.isoformat(),
+            "workday_type": {
+                "id": wd.workday_type_id,
+                "name": wd.workday_type.name,
+            },
+        }
+
+    class Meta:
+        model = PaymentWorkdayDetail
+        fields = ["id", "applied_amount", "workday"]
+        read_only_fields = fields
+
+
+class PaymentLoanDetailSerializer(drf_serializers.ModelSerializer):
+    """Detalle de abono a préstamo dentro de un pago."""
+
+    loan = drf_serializers.SerializerMethodField()
+
+    def get_loan(self, obj):
+        ln = obj.loan
+        return {
+            "id": ln.id,
+            "reason": ln.reason,
+        }
+
+    class Meta:
+        model = PaymentLoanDetail
+        fields = ["id", "paid_amount", "loan"]
+        read_only_fields = fields
+
+
+class LoanSerializer(drf_serializers.ModelSerializer):
+    """Payload de GET/POST de Loan.
+
+    Expone el historial de abonos en ``payment_details`` para que la
+    pantalla de préstamos pueda pintar "cuándo y cuánto se ha
+    abonado" sin una segunda petición.
+    """
+
+    payment_details = PaymentLoanDetailSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Loan
+        fields = [
+            "id",
+            "worker",
+            "status",
+            "amount",
+            "outstanding_balance",
+            "date",
+            "reason",
+            "created_by",
+            "created_at",
+            "payment_details",
+        ]
+        read_only_fields = [
+            "id",
+            "outstanding_balance",
+            "status",
+            "created_by",
+            "created_at",
+            "payment_details",
+        ]
+
+
 class PaymentDetailSerializer(drf_serializers.ModelSerializer):
     """Payload de respuesta del POST/GET de Payment.
 
-    NO expone ``voided_by``, ``voided_at`` si está anulado, ni nada sensible.
+    Incluye la pista de auditoría (``voided_at``, ``voided_by`` como
+    nombre legible del usuario) y el desglose del pago
+    (``workday_details`` + ``loan_details``) para que el historial
+    pueda pintar "qué jornadas y qué abonos incluyó cada pago".
     """
+
+    voided_by = drf_serializers.SerializerMethodField()
+    workday_details = PaymentWorkdayDetailSerializer(many=True, read_only=True)
+    loan_details = PaymentLoanDetailSerializer(many=True, read_only=True)
+
+    def get_voided_by(self, obj):
+        """Nombre legible del usuario que anuló el pago, o ``None``.
+
+        Lo expone como string para evitar que la UI tenga que hacer una
+        segunda petición por cada fila del historial. El modelo ``User``
+        de este proyecto solo tiene el campo ``name`` (``first_name`` y
+        ``last_name`` están deshabilitados), así que devolvemos
+        directamente ``name``.
+        """
+        if obj.voided_by_id is None:
+            return None
+        return obj.voided_by.name or None
 
     class Meta:
         model = Payment
@@ -126,6 +199,10 @@ class PaymentDetailSerializer(drf_serializers.ModelSerializer):
             "notes",
             "created_by",
             "created_at",
+            "voided_at",
+            "voided_by",
+            "workday_details",
+            "loan_details",
         ]
         read_only_fields = fields
 
@@ -162,14 +239,24 @@ class _ScopedQsMixin:
         if not (user and user.is_authenticated):
             return qs.none()
         if getattr(user, "is_admin_plataforma", False):
-            return qs
+            return self._optimize(qs)
         if user.organization_id is None:
             return qs.none()
         if self._via_worker_id:
-            return qs.filter(worker__user__organization_id=user.organization_id)
-        if hasattr(self._model, "user"):
-            return qs.filter(user__organization_id=user.organization_id)
-        return qs.none()
+            qs = qs.filter(worker__user__organization_id=user.organization_id)
+        elif hasattr(self._model, "user"):
+            qs = qs.filter(user__organization_id=user.organization_id)
+        else:
+            return qs.none()
+        return self._optimize(qs)
+
+    def _optimize(self, qs):
+        """``select_related`` / ``prefetch_related`` por defecto: ninguno.
+
+        Las subclases lo sobrescriben para evitar N+1 cuando los
+        serializers exponen FKs o relaciones inversas.
+        """
+        return qs
 
 
 class LoanViewSet(
@@ -191,6 +278,12 @@ class LoanViewSet(
     }
     ordering_fields = ["date", "created_at"]
     ordering = ["-date"]
+
+    def _optimize(self, qs):
+        # Para serializar ``payment_details`` (FK al Payment del que
+        # necesitamos ``payment_date``): un solo ``prefetch`` resuelve
+        # el JOIN en lote y elimina el N+1 al listar préstamos.
+        return qs.prefetch_related("payment_details__payment")
 
     def get_permissions(self):
         if self.request.method in {"GET", "HEAD", "OPTIONS"}:
@@ -251,6 +344,15 @@ class PaymentViewSet(
     }
     ordering_fields = ["payment_date", "created_at"]
     ordering = ["-payment_date"]
+
+    def _optimize(self, qs):
+        # ``voided_by`` (FK al User) va con select_related.
+        # ``workday_details.workday.workday_type`` y ``loan_details.loan``
+        # van con prefetch_related para no disparar N+1 al listar pagos.
+        return qs.select_related("voided_by").prefetch_related(
+            "workday_details__workday__workday_type",
+            "loan_details__loan",
+        )
 
     def get_permissions(self):
         if self.request.method in {"GET", "HEAD", "OPTIONS"}:

@@ -26,7 +26,6 @@ from apps.organizations.tests.factories import OrganizationFactory
 from apps.payments.exceptions import CrossOrganizationError
 from apps.payments.exceptions import LoanOverpaymentError
 from apps.payments.exceptions import OverpaymentError
-from apps.payments.models import Loan
 from apps.payments.models import Payment
 from apps.payments.services import LoanAllocation
 from apps.payments.services import create_loan
