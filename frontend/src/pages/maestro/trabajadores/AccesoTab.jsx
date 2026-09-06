@@ -1,8 +1,16 @@
-// Pestaña Acceso: gestión de credenciales del trabajador (username, estado,
-// reset de contraseña).
+// Pestaña Acceso: gestión de credenciales del trabajador.
+//
+// Fase D1:
+// - El campo de contraseña NUNCA pinta un valor que venga de un GET.
+//   Solo se muestra el resultado de un reset (POST .../reset-password/),
+//   una sola vez, hasta que se recargue la página.
+// - Quitamos `useState(usuario.password)` y `generarPassword` del cliente.
+//   La contraseña la genera el backend.
+// - Activar/desactivar y resetear password pasan por TanStack Query
+//   mutations que invalidan la query de workers.
 
 import { useState } from "react";
-import { Copy, KeyRound, Power, ShieldCheck, ShieldOff, EyeOff, Eye } from "lucide-react";
+import { Copy, KeyRound, ShieldCheck, ShieldOff, EyeOff, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,36 +21,56 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 import { useData } from "@/context/DataContext";
-import { formatFecha } from "@/lib/format";
 
 export function AccesoTab({ trabajador, usuario }) {
-  const { actualizarUsuario, generarPassword } = useData();
-  const [mostrar, setMostrar] = useState(false);
-  const [pwActual, setPwActual] = useState(usuario.password);
+  const {
+    activarTrabajador,
+    desactivarTrabajador,
+    resetearPasswordUsuario,
+  } = useData();
 
-  const resetPassword = () => {
-    const nuevo = generarPassword(10);
-    actualizarUsuario(usuario.id, { password: nuevo });
-    setPwActual(nuevo);
-    setMostrar(true);
-    toast.success("Nueva contraseña generada", {
-      description: "Cópiala y compártela con el trabajador por un canal seguro.",
-    });
+  // Solo se rellena tras un reset exitoso. Inicialmente vacío para que
+  // el campo aparezca enmascarado.
+  const [pwNuevo, setPwNuevo] = useState("");
+  const [mostrar, setMostrar] = useState(false);
+
+  const resetPassword = async () => {
+    try {
+      const resp = await resetearPasswordUsuario(usuario.id);
+      setPwNuevo(resp.initial_password);
+      setMostrar(true);
+      toast.success("Nueva contraseña generada", {
+        description:
+          "Cópiala y compártela con el trabajador por un canal seguro. " +
+          "El backend la guarda hasheada; no se vuelve a mostrar.",
+      });
+    } catch (e) {
+      toast.error("No se pudo restablecer la contraseña", {
+        description: e.message || "Inténtalo de nuevo.",
+      });
+    }
   };
 
   const toggleEstado = (activo) => {
-    actualizarUsuario(usuario.id, { estado: activo ? "activo" : "suspendido" });
-    toast.success(
-      activo ? "Acceso activado" : "Acceso desactivado",
-      {
-        description: activo
-          ? "El trabajador podrá iniciar sesión de nuevo."
-          : "El trabajador no podrá iniciar sesión hasta que lo reactives.",
-      },
-    );
+    if (!trabajador?.id) return;
+    const mut = activo ? activarTrabajador : desactivarTrabajador;
+    mut(trabajador.id, {})
+      .then(() =>
+        toast.success(activo ? "Acceso activado" : "Acceso desactivado", {
+          description: activo
+            ? "El trabajador podrá iniciar sesión de nuevo."
+            : "El trabajador no podrá iniciar sesión hasta que lo reactives.",
+        }),
+      )
+      .catch((e) =>
+        toast.error("No se pudo cambiar el estado", {
+          description: e.message || "Inténtalo de nuevo.",
+        }),
+      );
   };
 
   const copiar = (texto, label = "Copiado al portapapeles") => {
+    if (!texto) return;
     navigator.clipboard
       .writeText(texto)
       .then(() => toast.success(label))
@@ -50,6 +78,9 @@ export function AccesoTab({ trabajador, usuario }) {
   };
 
   const accesoActivo = usuario.estado === "activo";
+  // Si el backend no expone "estado" en /api/users/{id}/, caemos al flag
+  // is_active. Para D1 asumimos que el GET expone al menos uno de los dos.
+  const isActive = accesoActivo || usuario.is_active;
 
   return (
     <div className="space-y-5">
@@ -67,7 +98,7 @@ export function AccesoTab({ trabajador, usuario }) {
             <div className="flex items-center gap-2">
               <Input
                 readOnly
-                value={usuario.usuario}
+                value={usuario.usuario || usuario.email}
                 className="font-mono"
                 onFocus={(e) => e.currentTarget.select()}
               />
@@ -76,7 +107,9 @@ export function AccesoTab({ trabajador, usuario }) {
                 variant="outline"
                 size="icon"
                 className="min-h-tap min-w-tap"
-                onClick={() => copiar(usuario.usuario, "Usuario copiado")}
+                onClick={() =>
+                  copiar(usuario.usuario || usuario.email, "Usuario copiado")
+                }
                 aria-label="Copiar usuario"
               >
                 <Copy className="h-4 w-4" />
@@ -85,11 +118,17 @@ export function AccesoTab({ trabajador, usuario }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Contraseña actual</Label>
+            <Label>Contraseña</Label>
             <div className="flex items-center gap-2">
               <Input
                 readOnly
-                value={mostrar ? pwActual : "•".repeat(Math.max(8, pwActual.length))}
+                value={
+                  pwNuevo
+                    ? mostrar
+                      ? pwNuevo
+                      : "•".repeat(Math.max(8, pwNuevo.length))
+                    : "••••••••"
+                }
                 className="font-mono"
               />
               <Button
@@ -99,28 +138,37 @@ export function AccesoTab({ trabajador, usuario }) {
                 className="min-h-tap min-w-tap"
                 onClick={() => setMostrar((v) => !v)}
                 aria-label={mostrar ? "Ocultar contraseña" : "Mostrar contraseña"}
+                disabled={!pwNuevo}
               >
-                {mostrar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {mostrar ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
                 className="min-h-tap min-w-tap"
-                onClick={() => copiar(pwActual, "Contraseña copiada")}
+                onClick={() => copiar(pwNuevo, "Contraseña copiada")}
+                disabled={!pwNuevo}
                 aria-label="Copiar contraseña"
               >
                 <Copy className="h-4 w-4" />
               </Button>
-              <Button type="button" onClick={resetPassword} className="min-h-tap">
+              <Button
+                type="button"
+                onClick={resetPassword}
+                className="min-h-tap"
+              >
                 <KeyRound className="mr-2 h-4 w-4" />
-                Restablecer
+                {pwNuevo ? "Generar otra" : "Restablecer"}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              La contraseña se guarda hasheada en el backend. El "Restablecer" del
-              prototipo la regenera a un valor aleatorio y la muestra una sola vez;
-              en producción se enviará por correo.
+              La contraseña nunca se muestra en un GET. Solo aparece aquí
+              tras un "Restablecer" y desaparece al recargar la página.
             </p>
           </div>
         </CardContent>
@@ -137,7 +185,7 @@ export function AccesoTab({ trabajador, usuario }) {
         <CardContent className="flex items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              {accesoActivo ? (
+              {isActive ? (
                 <Badge variant="default" className="gap-1.5">
                   <ShieldCheck className="h-3 w-3" /> Activo
                 </Badge>
@@ -147,53 +195,17 @@ export function AccesoTab({ trabajador, usuario }) {
                 </Badge>
               )}
               <span className="text-xs text-muted-foreground">
-                {accesoActivo
+                {isActive
                   ? "El trabajador puede iniciar sesión."
-                  : "El trabajador NO puede iniciar sesión."}
+                  : "El trabajador no puede iniciar sesión."}
               </span>
             </div>
-            {usuario.creadoEn && (
-              <p className="text-xs text-muted-foreground">
-                Creado: {formatFecha(usuario.creadoEn, "dd/MM/yyyy")}
-                {usuario.ultimoAcceso && (
-                  <> · Último acceso: {formatFecha(usuario.ultimoAcceso, "dd/MM/yyyy HH:mm")}</>
-                )}
-              </p>
-            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Power className="h-4 w-4 text-muted-foreground" />
-            <Label className="text-sm">{accesoActivo ? "Desactivar acceso" : "Activar acceso"}</Label>
-            <Switch
-              checked={accesoActivo}
-              onCheckedChange={toggleEstado}
-              aria-label="Alternar acceso"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Datos del trabajador (informativo)</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground">Nombre</p>
-            <p className="font-medium">{usuario.nombre}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Rol</p>
-            <p className="font-medium capitalize">{usuario.rol}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Tenant</p>
-            <p className="font-medium">{trabajador.tenantId}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">TrabajadorId</p>
-            <p className="font-mono text-xs">{trabajador.id}</p>
-          </div>
+          <Switch
+            checked={!!isActive}
+            onCheckedChange={(v) => toggleEstado(v)}
+            aria-label="Cambiar estado de acceso"
+          />
         </CardContent>
       </Card>
     </div>

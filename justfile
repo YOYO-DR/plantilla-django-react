@@ -136,11 +136,11 @@ test-frontend *args:
         echo "!! frontend/node_modules no existe. Instalando dependencias..."
         cd frontend && pnpm install --frozen-lockfile && cd ..
     fi
+    cd frontend
     echo "-> pnpm lint (host)"
-    cd frontend && pnpm lint {{args}}
+    pnpm lint {{args}}
     echo "-> pnpm build (host)"
-    cd frontend && pnpm build
-    cd ..
+    pnpm build
 
 # _requiere-servicio: Verifica que un servicio de compose este corriendo antes de probar.
 _requiere-servicio servicio suite:

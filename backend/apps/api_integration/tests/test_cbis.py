@@ -12,24 +12,19 @@ Cubre:
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import Group
 from rest_framework.test import APIClient
 
-from apps.catalogs.tests.factories import (
-    PaymentMethodFactory,
-    PaymentStatusFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.catalogs.tests.factories import PaymentStatusFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.organizations.tests.factories import OrganizationFactory
-from apps.payments.tests.factories import PaymentFactory
 from apps.users.tests.factories import UserFactory
 from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.services import create_workday
 from apps.workdays.tests.factories import WorkerRateFactory
-
 
 # Fixtures -------------------------------------------------------------
 
@@ -215,12 +210,16 @@ def test_workday_bulk_mark_creates_all_atomic(maestro_a):
     profile_a = WorkerProfileFactory(user__organization=org)
     profile_b = WorkerProfileFactory(user__organization=org)
     WorkerRateFactory(
-        worker=profile_a, amount="50000.00",
-        valid_from=date(2026, 1, 1), valid_until=None,
+        worker=profile_a,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
     )
     WorkerRateFactory(
-        worker=profile_b, amount="50000.00",
-        valid_from=date(2026, 1, 1), valid_until=None,
+        worker=profile_b,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
     )
     wd_type = WorkdayTypeFactory(name="Dia completo bulk", factor="1.00")
     PaymentStatusFactory(name="p_bulk")
@@ -239,7 +238,13 @@ def test_workday_bulk_mark_creates_all_atomic(maestro_a):
     body = resp.json()
     assert body["count"] == 2
     from apps.workdays.models import Workday
-    assert Workday.objects.filter(worker__in=[profile_a, profile_b], date=date(2026, 3, 15)).count() == 2
+
+    assert (
+        Workday.objects.filter(
+            worker__in=[profile_a, profile_b], date=date(2026, 3, 15)
+        ).count()
+        == 2
+    )
 
 
 @pytest.mark.django_db
@@ -247,12 +252,16 @@ def test_workday_bulk_mark_cross_org_worker_returns_404(maestro_a, maestro_b):
     profile_a = WorkerProfileFactory(user__organization=maestro_a.organization)
     profile_b = WorkerProfileFactory(user__organization=maestro_b.organization)
     WorkerRateFactory(
-        worker=profile_a, amount="50000.00",
-        valid_from=date(2026, 1, 1), valid_until=None,
+        worker=profile_a,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
     )
     WorkerRateFactory(
-        worker=profile_b, amount="50000.00",
-        valid_from=date(2026, 1, 1), valid_until=None,
+        worker=profile_b,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
     )
     wd_type = WorkdayTypeFactory(name="X bulk", factor="1.00")
     api = APIClient()
@@ -268,6 +277,7 @@ def test_workday_bulk_mark_cross_org_worker_returns_404(maestro_a, maestro_b):
     )
     assert resp.status_code == 404
     from apps.workdays.models import Workday
+
     assert Workday.objects.count() == 0
 
 
@@ -275,15 +285,19 @@ def test_workday_bulk_mark_cross_org_worker_returns_404(maestro_a, maestro_b):
 def test_workday_bulk_copy_copies_range(maestro_a):
     profile = WorkerProfileFactory(user__organization=maestro_a.organization)
     WorkerRateFactory(
-        worker=profile, amount="50000.00",
-        valid_from=date(2026, 1, 1), valid_until=None,
+        worker=profile,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
     )
     wd_type = WorkdayTypeFactory(name="Y copy", factor="1.00")
     PaymentStatusFactory(name="p_copy")
     for day in range(1, 4):
         create_workday(
-            worker=profile, workday_type=wd_type,
-            date=date(2026, 3, day), created_by=maestro_a,
+            worker=profile,
+            workday_type=wd_type,
+            date=date(2026, 3, day),
+            created_by=maestro_a,
         )
     api = APIClient()
     api.force_authenticate(user=maestro_a)
@@ -299,6 +313,7 @@ def test_workday_bulk_copy_copies_range(maestro_a):
     assert resp.status_code == 201
     assert resp.json()["count"] == 3
     from apps.workdays.models import Workday
+
     for day in range(8, 11):
         assert Workday.objects.filter(worker=profile, date=date(2026, 3, day)).exists()
 
@@ -307,27 +322,35 @@ def test_workday_bulk_copy_copies_range(maestro_a):
 def test_workday_bulk_clear_skips_workdays_with_payments(maestro_a):
     profile = WorkerProfileFactory(user__organization=maestro_a.organization)
     WorkerRateFactory(
-        worker=profile, amount="50000.00",
-        valid_from=date(2026, 1, 1), valid_until=None,
+        worker=profile,
+        amount="50000.00",
+        valid_from=date(2026, 1, 1),
+        valid_until=None,
     )
     wd_type = WorkdayTypeFactory(name="Z clear", factor="1.00")
     PaymentStatusFactory(name="p_clear")
     pm = PaymentMethodFactory(name="Efectivo clear")
 
     wd_pagada = create_workday(
-        worker=profile, workday_type=wd_type,
-        date=date(2026, 3, 1), created_by=maestro_a,
+        worker=profile,
+        workday_type=wd_type,
+        date=date(2026, 3, 1),
+        created_by=maestro_a,
     )
     wd_libre = create_workday(
-        worker=profile, workday_type=wd_type,
-        date=date(2026, 3, 2), created_by=maestro_a,
+        worker=profile,
+        workday_type=wd_type,
+        date=date(2026, 3, 2),
+        created_by=maestro_a,
     )
     from apps.payments.services import register_payment
 
     register_payment(
-        worker=profile, payment_method=pm,
+        worker=profile,
+        payment_method=pm,
         payment_date=date(2026, 3, 16),
-        workday_ids=[wd_pagada.id], loan_allocations=[],
+        workday_ids=[wd_pagada.id],
+        loan_allocations=[],
         created_by=maestro_a,
     )
 

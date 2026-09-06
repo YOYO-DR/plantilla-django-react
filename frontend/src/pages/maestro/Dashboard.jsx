@@ -230,12 +230,6 @@ export default function MaestroDashboard() {
             icon={Wallet}
           />
           <AccesoRapido
-            to="/app/maestro/liquidaciones"
-            label="Liquidar semana"
-            desc="Calcular y pagar"
-            icon={Calculator}
-          />
-          <AccesoRapido
             to="/app/maestro/trabajadores"
             label="Agregar trabajador"
             desc="Nuevo en la cuadrilla"
