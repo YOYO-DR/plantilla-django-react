@@ -3,6 +3,10 @@
 Documentación de la arquitectura del sistema **JornalPro** siguiendo el
 template [arc42 v9.0](https://arc42.org/).
 
+> 📘 **Doc interactiva Sphinx:** [`../index.rst`](../index.rst) describe la
+> misma arquitectura en formato HTML navegable (generada con `just docs-serve`).
+> arc42 y Sphinx describen los mismos bloques; mantenerlos sincronizados.
+
 ## Índice
 
 | # | Sección | Descripción |

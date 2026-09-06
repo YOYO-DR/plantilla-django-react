@@ -1,0 +1,17 @@
+services:
+  docs:
+    image: jornal_pro_trabajadores_local_docs
+    container_name: jornal_pro_trabajadores_local_docs
+    build:
+      context: ./backend
+      dockerfile: ./backend/compose/local/docs/Dockerfile
+    env_file:
+      - ./backend/.envs/.local/.django
+    volumes:
+      - /app/.venv
+      - ./docs:/docs:z
+      - ./backend/config:/app/config:z
+      - ./backend/apps:/app/apps:z
+    ports:
+      - '9000:9000'
+    command: /start-docs
