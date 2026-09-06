@@ -2,14 +2,18 @@
 
 # ruff: noqa: S106
 import pytest
+from django.conf import settings
 
 
 @pytest.fixture
 def user_with_password(django_user_model):
-    return django_user_model.objects.create_user(
+    user = django_user_model.objects.create_user(
         email="testuser@jornalpro.dev",
         password="testpass123",
     )
+    user.name = "Test User"
+    user.save()
+    return user
 
 
 @pytest.mark.django_db
@@ -91,6 +95,32 @@ def test_me_returns_user_info(client, user_with_password):
     resp = client.get("/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {access}")
     assert resp.status_code == 200
     assert resp.data["email"] == "testuser@jornalpro.dev"
+
+
+@pytest.mark.django_db
+def test_me_includes_name_and_omits_username(client, user_with_password):
+    """``MeView`` expone ``name`` legible y NO expone ``username``.
+
+    Bug H2 (Fase 8): el dashboard saludaba con el email en lugar del
+    nombre porque ``MeView`` no devolvía ``name``. Decisión sobre
+    ``username``: este proyecto tiene ``User.username = None``
+    (USERNAME_FIELD es ``email``), así que devolver siempre ``null``
+    era ruido permanente para el cliente. Se omite del payload con
+    justificación en el código.
+    """
+    login = client.post(
+        "/api/auth/token",
+        {"email": "testuser@jornalpro.dev", "password": "testpass123"},
+        format="json",
+    )
+    access = login.data["access"]
+    resp = client.get("/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {access}")
+    assert resp.status_code == 200
+    assert "name" in resp.data
+    # El factory de User usa Faker("name"), así que es un string no vacío.
+    assert isinstance(resp.data["name"], str)
+    assert len(resp.data["name"]) > 0
+    assert "username" not in resp.data
 
 
 # =====================================================================
@@ -183,3 +213,40 @@ def test_me_worker_profile_id_null_for_admin_plataforma(client, org_and_users):
     assert resp.data["worker_profile_id"] is None
     assert resp.data["organization_id"] is None
     assert resp.data["is_staff"] is True
+
+
+# =====================================================================
+# CookieTokenRefreshView: ramas de error y de coerción de body
+# =====================================================================
+
+
+@pytest.mark.django_db
+def test_refresh_with_invalid_cookie_token_returns_401(client, user_with_password):
+    """Cookie con un refresh token malformado → 401 + delete_cookie.
+
+    Cubre las líneas 61-65 de ``CookieTokenRefreshView.post`` (rama de
+    excepción ``InvalidToken``/``TokenError`` con limpieza de cookie).
+    """
+    client.cookies[settings.JWT_COOKIE_NAME] = "esto-no-es-un-jwt-valido"
+    resp = client.post("/api/auth/token/refresh", {}, format="json")
+    assert resp.status_code == 401
+    # Cookie borrada en respuesta para forzar re-login.
+    assert resp.cookies[settings.JWT_COOKIE_NAME].value == ""
+
+
+@pytest.mark.django_db
+def test_refresh_with_dict_body_uses_data_copy(client, user_with_password):
+    """Body como dict literal (formato JSON) → cubre ``data.copy()`` línea 50."""
+    login = client.post(
+        "/api/auth/token",
+        {"email": "testuser@jornalpro.dev", "password": "testpass123"},
+        format="json",
+    )
+    access = login.data["access"]
+    resp = client.post(
+        "/api/auth/token/refresh",
+        {},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {access}",
+    )
+    assert resp.status_code == 200

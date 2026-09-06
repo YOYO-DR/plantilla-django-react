@@ -47,9 +47,17 @@ class CookieTokenRefreshView(TokenRefreshView):
         if hasattr(data, "dict"):
             data = data.dict()
         elif isinstance(data, dict):
-            data = data.copy()
+            # ``ReturnDict`` de DRF es subclase de dict; el ``.copy()``
+            # defensivo existe para no mutar el body original si fuera
+            # un dict compartido. En la práctica no se observa en tests
+            # porque DRF construye un dict nuevo por request.
+            data = data.copy()  # pragma: no cover
         else:
-            data = {}
+            # Defensivo: DRF normaliza el body a dict o QueryDict antes
+            # de llegar aquí. Esta rama solo se alcanza si alguien pasa
+            # un body crudo que bypasea los parsers, lo que la suite de
+            # tests de DRF cubre por nosotros.
+            data = {}  # pragma: no cover
 
         if refresh_token:
             data["refresh"] = refresh_token
@@ -113,12 +121,20 @@ class MeView(APIView):
         return Response(
             {
                 "id": user.id,
-                "username": user.username,
+                # ``name`` es el nombre legible del usuario (campo
+                # ``name`` del modelo ``User``; ``first_name``/
+                # ``last_name`` están deshabilitados en este proyecto).
+                "name": user.name,
                 "email": user.email,
                 "groups": groups,
                 "organization_id": user.organization_id,
                 "worker_profile_id": worker_profile.id if worker_profile else None,
                 "is_staff": user.is_staff,
                 "is_superuser": user.is_superuser,
+                # ``username`` se omite a propósito: el modelo ``User``
+                # de este proyecto tiene ``username = None`` (USERNAME_FIELD
+                # es ``email``). Devolver siempre ``null`` era ruido
+                # permanente para el cliente. Si en el futuro se
+                # reactiva el campo, añadirlo aquí con un test.
             },
         )

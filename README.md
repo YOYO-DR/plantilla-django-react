@@ -9,7 +9,8 @@ Construido como monorepo con:
 - **Backend:** Django 6 + DRF + SimpleJWT + Postgres 18 + pgbouncer + Redis + Celery.
 - **Frontend:** React 19 + Vite + shadcn/ui + Tailwind + Zustand.
 - **Multi-tenant:** Shared schema con filtro por `organization_id` (ver
-  `docs/arc42/08_architectural_decisions.md` para el ADR).
+  [`docs/arc42/09-decisiones-de-arquitectura/decisiones.md`](docs/arc42/09-decisiones-de-arquitectura/decisiones.md) y
+  [`docs/arc42/08-conceptos-transversales/README.md`](docs/arc42/08-conceptos-transversales/README.md#multi-tenancy)).
 - **Documentación arc42:** ver [`docs/arc42/README.md`](docs/arc42/README.md).
 
 ## Quick start (con Docker)
@@ -109,7 +110,7 @@ en **2 tenants**. Contraseñas en texto plano sólo para el seed de demo:
 
 - **Arquitectura:** [`docs/arc42/README.md`](docs/arc42/README.md)
 - **Decisiones arquitectónicas (ADRs):**
-  [`docs/arc42/08_architectural_decisions.md`](docs/arc42/08_architectural_decisions.md)
+  [`docs/arc42/09-decisiones-de-arquitectura/decisiones.md`](docs/arc42/09-decisiones-de-arquitectura/decisiones.md)
 - **Tuning pgbouncer/postgres:** [`docs/PGBOUNCER_OPTIMAL.md`](docs/PGBOUNCER_OPTIMAL.md)
 - **Pendientes de setup:** [`docs/SETUP_NOTES.md`](docs/SETUP_NOTES.md)
 
@@ -131,12 +132,97 @@ pnpm dev
 Requiere Postgres 18 y Redis 7 corriendo localmente. NO recomendado —
 usa Docker.
 
+## Puertas de calidad (gates)
+
+Antes de abrir un PR o de pedir review de un cambio, las tres puertas
+deben estar verdes:
+
+```bash
+# 1) Backend: pytest + cobertura global >=90%, services de dinero al 100%.
+just test-backend --cov
+
+# 2) Migraciones: no debe haber migraciones nuevas sin commitear.
+just manage makemigrations --check --dry-run
+# Salida esperada: "No changes detected". Exit code: 0.
+
+# 3) Lint + format (ruff, ruff-format, djLint, …).
+# ⚠️  TRAMPA: el `pre-commit` que está en el $PATH de este entorno está
+# ROTO. Hay que usar el del pyenv explícitamente; si ejecutas
+# `pre-commit run` a secas, sale verde pero no valida nada.
+~/.pyenv/versions/3.14.2/bin/pre-commit run --all-files
+# La primera pasada puede reformatear archivos (ruff-format, djLint);
+# se relanza hasta exit 0 en la 2ª o 3ª corrida.
+```
+
+`just test` ejecuta las tres suites (`all`, `backend`, `frontend`).
+Ver `justfile` para más recetas (`docs-build`, `docs-serve`, `ci-local`).
+
 ## Convenciones
 
 - Commits: feat|fix|chore|docs(scope): description.
 - Branches: feat/*, fix/*, chore/*, docs/*.
-- pre-commit obligatorio antes de push.
+- pre-commit obligatorio antes de push (usando `~/.pyenv/versions/3.14.2/bin/pre-commit`).
 - Tests junto al código en `apps/<bounded_context>/tests/`.
+
+## Variables de entorno
+
+Todas las variables están documentadas en [`.env.example`](.env.example)
+en la raíz. Para producción ver `backend/.envs/.production/` (los valores
+reales **no se commitean**: están en `.gitignore`).
+
+## Despliegue en producción
+
+Hay **dos archivos** de compose para producción, según dónde despliegues.
+**No son intercambiables** — cada uno asume una topología distinta:
+
+| Archivo | Cuándo usarlo | Red interna | Cómo publica 80/443 |
+|---------|---------------|-------------|----------------------|
+| [`docker-compose.prod.yml`](docker-compose.prod.yml) | VPS con Docker standalone (sin Dokploy) | Crea su propia red `internal_backend` | Traefik publica 80/443 al host |
+| [`docker-compose.dokploy.yml`](docker-compose.dokploy.yml) | Dokploy (PaaS que orquesta contenedores) | Usa `dokploy-network` externa | Traefik gestiona el routing dentro de Dokploy |
+
+**Regla práctica**: si tu servidor es un VPS limpio y haces
+`docker compose up -d` directamente, usa `.prod.yml`. Si Dokploy
+gestiona tus stacks, usa `.dokploy.yml`.
+
+### Despliegue con `docker-compose.prod.yml` (VPS standalone)
+
+- 10 servicios: django, postgres, pgbouncer, redis, celeryworker,
+  celerybeat, flower, nginx (media), frontend, traefik.
+- Healthcheck en `django` (`curl http://localhost:8000/api/`).
+- Volúmenes nombrados para postgres, redis, media, logs y ACME.
+- Traefik con Let's Encrypt automático. Variables en `.env`:
+  `DOMAIN` (obligatoria), `VITE_API_URL`, `CELERYWORKER_CPU/RAM`,
+  `PGBOUNCER_CPU/RAM`, etc. Ver [`.env.example`](.env.example).
+
+```bash
+# 1. Configurar variables en .env (ver .env.example)
+cp .env.example .env
+# editar .env con los valores reales
+
+# 2. Levantar
+docker compose -f docker-compose.prod.yml up -d
+
+# 3. Verificar el certificado Let's Encrypt
+docker logs <contenedor-traefik>
+```
+
+### Despliegue con `docker-compose.dokploy.yml` (Dokploy)
+
+- Servicios con sufijo `_jornal` para evitar colisiones DNS en la red
+  `dokploy-network` compartida.
+- Volúmenes nombrados para postgres, media, logs y certificados ACME.
+- Reverse proxy con Let's Encrypt automático vía Traefik.
+- Recursos (CPU/RAM) parametrizables vía variables de entorno.
+
+```bash
+# 1. Crear red `dokploy-network` en el servidor si no existe.
+# 2. Configurar las variables en `.env` de Dokploy (ver .env.example).
+# 3. docker compose -f docker-compose.dokploy.yml up -d
+# 4. Verificar Traefik emitió el certificado con `docker logs <contenedor-traefik>`
+```
+
+Detalle completo de cada servicio y variables en
+[`docs/arc42/07-vista-de-despliegue/despliegue.md`](docs/arc42/07-vista-de-despliegue/despliegue.md).
 
 ## Licencia
 

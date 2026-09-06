@@ -153,5 +153,5 @@ Cuando lleguemos a >50 tenants activos simultáneos, evaluar:
 - Mover sesiones a Redis (hoy en DB).
 - CDN para estáticos del frontend.
 
-Ver [docs/PGBOUNCER_OPTIMAL.md](../PGBOUNCER_OPTIMAL.md) para tuning
+Ver [docs/PGBOUNCER_OPTIMAL.md](../../PGBOUNCER_OPTIMAL.md) para tuning
 de Postgres + pgbouncer.

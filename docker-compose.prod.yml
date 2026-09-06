@@ -1,0 +1,181 @@
+# =====================================================================
+# JornalPro — docker-compose.prod.yml
+# =====================================================================
+# Stack de PRODUCCIÓN con Traefik como reverse proxy y Let's Encrypt
+# automático para TLS. Diseñado para correr en un VPS con Docker
+# standalone (NO Dokploy), publicando 80/443 directamente al host.
+#
+# Si vas a desplegar en Dokploy, usa `docker-compose.dokploy.yml` en su
+# lugar (mismo contenido + red `dokploy-network` externa).
+#
+# Variables de entorno que el operador debe exportar antes de
+# `docker compose up -d`: ver `README.md` y `.env.example`.
+# =====================================================================
+
+volumes:
+  production_postgres_data: {}
+  production_postgres_data_backups: {}
+  production_redis_data: {}
+  production_traefik: {}
+  production_django_media: {}
+  production_django_logs: {}
+
+networks:
+  # Red interna de Traefik ↔ servicios. NO se publica al host.
+  internal_backend:
+
+services:
+  django: &django
+    build:
+      context: ./backend
+      dockerfile: ./compose/production/django/Dockerfile
+    image: jornal_pro_trabajadores_production_django
+    volumes:
+      - production_django_media:/app/apps/media
+      - production_django_logs:/app/logs
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    command: /start
+    networks:
+      - internal_backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres:
+    build:
+      context: ./backend
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: jornal_pro_trabajadores_production_postgres
+    volumes:
+      - production_postgres_data:/var/lib/postgresql/18/docker
+      - production_postgres_data_backups:/backups
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      - internal_backend
+
+  pgbouncer:
+    build:
+      context: ./backend
+      dockerfile: ./compose/production/pgbouncer/Dockerfile
+    image: jornal_pro_trabajadores_production_pgbouncer
+    depends_on:
+      - postgres
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      - internal_backend
+
+  redis:
+    image: docker.io/redis:7.2
+    volumes:
+      - production_redis_data:/data
+    restart: unless-stopped
+    networks:
+      - internal_backend
+
+  celeryworker:
+    <<: *django
+    image: jornal_pro_trabajadores_production_celeryworker
+    command: /start-celeryworker
+    depends_on:
+      - pgbouncer
+      - redis
+    ports: []
+    restart: unless-stopped
+    networks:
+      - internal_backend
+    deploy:
+      replicas: ${CANT_WORKERS_CELERY:-2}
+
+  celerybeat:
+    <<: *django
+    image: jornal_pro_trabajadores_production_celerybeat
+    command: /start-celerybeat
+    depends_on:
+      - pgbouncer
+      - redis
+    ports: []
+    restart: unless-stopped
+    networks:
+      - internal_backend
+
+  flower:
+    <<: *django
+    image: jornal_pro_trabajadores_production_flower
+    command: /start-flower
+    depends_on:
+      - celeryworker
+    networks:
+      - internal_backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.flower.rule=Host(`flower.${DOMAIN}`)"
+      - "traefik.http.routers.flower.entrypoints=websecure"
+      - "traefik.http.routers.flower.tls.certresolver=letsencrypt"
+      - "traefik.http.services.flower.loadbalancer.server.port=5555"
+
+  nginx:
+    build:
+      context: ./backend
+      dockerfile: ./compose/production/nginx/Dockerfile
+    image: jornal_pro_trabajadores_production_nginx
+    volumes:
+      - production_django_media:/usr/share/nginx/media:ro
+    restart: unless-stopped
+    networks:
+      - internal_backend
+    labels:
+      - "traefik.enable=true"
+      # Sirve los archivos de medios subidos por los usuarios (fotos, …)
+      - "traefik.http.routers.media.rule=Host(`${DOMAIN}`) && PathPrefix(`/media/`)"
+      - "traefik.http.routers.media.entrypoints=websecure"
+      - "traefik.http.routers.media.tls.certresolver=letsencrypt"
+      - "traefik.http.services.media.loadbalancer.server.port=80"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ./compose/production/Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    image: jornal_pro_trabajadores_production_frontend
+    restart: unless-stopped
+    networks:
+      - internal_backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  traefik:
+    build:
+      context: ./backend
+      dockerfile: ./compose/production/traefik/Dockerfile
+    image: jornal_pro_trabajadores_production_traefik
+    depends_on:
+      - django
+    volumes:
+      - production_traefik:/etc/traefik/acme
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - internal_backend

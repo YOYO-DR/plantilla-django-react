@@ -63,7 +63,7 @@ a `Organization`). El filtro se aplica en cada `ViewSet.get_queryset()`.
 - **Contra:** vulnerable a CSRF si no usamos SameSite=Strict. Mitigado
   con SameSite=Lax + verificación de Origin en middleware.
 
-Ver [ADR-001](08_architectural_decisions.md#adr-001).
+Ver [ADR-001](../09-decisiones-de-arquitectura/decisiones.md#adr-001).
 
 ### S3. Liquidación: snapshot inmutable en JSONField
 
@@ -76,7 +76,7 @@ una Workday después, el comprobante NO cambia.
 - **Contra:** más espacio en disco. Mitigado: las liquidaciones son
   semanales, no diarias (~50/año por trabajador).
 
-Ver [ADR-003](08_architectural_decisions.md#adr-003).
+Ver [ADR-003](../09-decisiones-de-arquitectura/decisiones.md#adr-003).
 
 ### S4. Cálculo de jornal: el backend es la fuente de verdad
 
