@@ -53,7 +53,7 @@ export function CrearTenantDialog({ open, onOpenChange }) {
       const pwd = generarPassword(10);
       form.setValue("maestroPassword",pwd);
     }
-  },[open]);  
+  },[open]);
 
   const onSubmit = (data) => {
     try {

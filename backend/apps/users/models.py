@@ -1,3 +1,9 @@
+"""Usuarios y perfiles de trabajador de JornalPro.
+
+User: autenticación via email (AUTH_USER_MODEL), organización opcional.
+WorkerProfile: extensión 1:1 con User para trabajadores del grupo Trabajador.
+"""
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -20,7 +26,8 @@ class User(AbstractUser):
     Reglas:
     - email es USERNAME_FIELD (sin username real).
     - name (first_name) usado como display.
-    - organization: si NULL + is_staff=True, es admin plataforma; si tiene, es maestro o trabajador.
+    - organization NULL + is_staff True → admin plataforma.
+      Con organización → maestro o trabajador.  # noqa: E501
     """
 
     # First and last name do not cover name patterns around the globe
@@ -35,6 +42,7 @@ class User(AbstractUser):
         related_name="users",
         null=True,
         blank=True,
+        verbose_name="Organización",
         help_text="Vacío solo para staff de plataforma sin organización asignada.",
     )
     phone = CharField(_("teléfono"), max_length=20, blank=True)
@@ -88,30 +96,24 @@ class WorkerProfile(models.Model):
         return self.user.organization
 
     @property
-    def current_rate(self):
-        # Cuando exista WorkerRate en Fase 4 devolverá esa. Por ahora None.
-        return None
+    def current_rate(self):  # type: ignore[no-untyped-def]
+        """Tarifa vigente en ``today`` (valid_until=None cuenta como vigente).
 
+        Import diferido para evitar ciclo users → workdays (workdays
+        también depende de users vía FK WorkerRate.worker → WorkerProfile).
+        """
+        from django.utils import timezone  # noqa: PLC0415
 
-class WorkerRate(models.Model):
-    """Tarifa vigente de un trabajador. Se añade en Fase 4 pero la refactor
-    la prepara aquí para no romper migraciones."""
+        from apps.workdays.models import WorkerRate  # noqa: PLC0415
 
-    worker = models.ForeignKey(
-        WorkerProfile,
-        on_delete=models.CASCADE,
-        related_name="rates",
-    )
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    valid_from = models.DateField()
-    valid_until = models.DateField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        verbose_name = "Tarifa de trabajador"
-        verbose_name_plural = "Tarifas de trabajador"
-        ordering = ["-valid_from"]
-        indexes = [models.Index(fields=["worker", "valid_from"])]
-
-    def __str__(self) -> str:
-        return f"{self.worker} — {self.amount} desde {self.valid_from}"
+        today = timezone.now().date()
+        return (
+            WorkerRate.objects.filter(
+                worker=self,
+            )
+            .filter(
+                models.Q(valid_until__isnull=True) | models.Q(valid_until__gte=today),
+            )
+            .order_by("-valid_from")
+            .first()
+        )

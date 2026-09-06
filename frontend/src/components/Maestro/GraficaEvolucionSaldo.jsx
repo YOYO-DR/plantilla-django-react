@@ -71,7 +71,7 @@ export function GraficaEvolucionSaldo({ movimientos, fechaISO }) {
             formatter={(v) => [formatCOP(Number(v)), "Saldo"]}
           />
           <Area
-            
+
             dataKey="saldo"
             stroke="hsl(var(--destructive))"
             strokeWidth={2}

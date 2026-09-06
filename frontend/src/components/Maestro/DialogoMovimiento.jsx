@@ -188,7 +188,7 @@ export function DialogoMovimiento({
           <Label htmlFor="fecha">Fecha</Label>
           <Input
             id="fecha"
-            
+
             {...form.register("fecha")}
             aria-invalid={!!form.formState.errors.fecha}
           />
@@ -213,7 +213,7 @@ export function DialogoMovimiento({
           {modo === "prestamo" && (<div className="mt-1 flex flex-wrap gap-1">
               {RAPIDOS_PRESTAMO.map((v) => (<Button
                   key={v}
-                  
+
                   variant="outline"
                   size="sm"
                   className="h-7 px-2 text-xs num"
@@ -226,7 +226,7 @@ export function DialogoMovimiento({
                 </Button>))}
             </div>)}
           {modo === "abono" && saldoActual > 0 && (<Button
-              
+
               variant="outline"
               size="sm"
               className="mt-1 h-7 text-xs"

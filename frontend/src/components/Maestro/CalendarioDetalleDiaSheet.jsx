@@ -118,7 +118,7 @@ function FilaTrabajadorSheet({
               };
               return (<button
                   key={op.tipo}
-                  
+
                   onClick={() => setTipo(op.tipo)}
                   className={`flex min-h-tap flex-col items-center justify-center gap-0.5 rounded-md border py-1.5 text-xs font-semibold transition-colors ${tones[op.color]}`}
                 >
@@ -130,7 +130,7 @@ function FilaTrabajadorSheet({
 
         {!liquidada && (<div className="flex items-center justify-end gap-2">
             {jornada && (<Button
-                
+
                 variant="ghost"
                 size="sm"
                 className="text-destructive"

@@ -1,13 +1,13 @@
+"""Serializers para catálogos."""
+
 from __future__ import annotations
 
 from rest_framework import serializers
 
-from apps.catalogs.models import (
-    WorkdayType,
-    PaymentStatus,
-    TipoMovimientoDeuda,
-    PaymentMethod,
-)
+from .models import LoanStatus
+from .models import PaymentMethod
+from .models import PaymentStatus
+from .models import WorkdayType
 
 
 class WorkdayTypeSerializer(serializers.ModelSerializer):
@@ -24,10 +24,10 @@ class PaymentStatusSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-class TipoMovimientoDeudaSerializer(serializers.ModelSerializer):
+class LoanStatusSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TipoMovimientoDeuda
-        fields = ["id", "name", "affects_balance", "order", "is_active"]
+        model = LoanStatus
+        fields = ["id", "name", "order", "is_active"]
         read_only_fields = ["id"]
 
 

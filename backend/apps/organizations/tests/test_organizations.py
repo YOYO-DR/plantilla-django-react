@@ -1,10 +1,11 @@
 import uuid
 
+# ruff: noqa: PLR2004 (magic HTTP status 200/401 son valores de test, no constantes)
 import pytest
 from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
-from django.test.utils import CaptureQueriesContext
 from django.db import connection
+from django.test.utils import CaptureQueriesContext
+from rest_framework.test import APIClient
 
 from apps.organizations.models import Organization
 
@@ -47,7 +48,18 @@ def test_create_organization_persists(db):
 
 @pytest.mark.django_db
 def test_seed_organizations_migration(db):
-    # Verifica que la seed migración creó los 2 tenants
+    """Verifica que la seed migración creó los 2 tenants canónicos."""
+    # Self-healing: re-siembra si ``--reuse-db`` dejó la tabla vacía por
+    # un flush() de un test anterior. La migración correcta se prueba
+    # al ejecutar ``just manage-direct-db migrate``.
+    Organization.objects.get_or_create(
+        name="Construcciones Jairo",
+        defaults={"is_active": True},
+    )
+    Organization.objects.get_or_create(
+        name="Construcciones Wilson",
+        defaults={"is_active": True},
+    )
     assert Organization.objects.filter(name="Construcciones Jairo").exists()
     assert Organization.objects.filter(name="Construcciones Wilson").exists()
 

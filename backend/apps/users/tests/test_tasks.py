@@ -12,7 +12,7 @@ def test_user_count(settings):
     """A basic test to execute the get_users_count Celery task."""
     # El seed (0003_seed_users) persiste entre tests con --reuse-db.
     # Verificamos el delta en lugar del total absoluto.
-    User = get_user_model()
+    User = get_user_model()  # noqa: N806
     initial = User.objects.count()
     batch_size = 3
     UserFactory.create_batch(batch_size)

@@ -1,21 +1,19 @@
+"""ViewSets para catálogos."""
+
 from __future__ import annotations
 
 from django.db.models import Q
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from apps.catalogs.models import (
-    WorkdayType,
-    PaymentStatus,
-    TipoMovimientoDeuda,
-    PaymentMethod,
-)
-from apps.catalogs.serializers import (
-    WorkdayTypeSerializer,
-    PaymentStatusSerializer,
-    TipoMovimientoDeudaSerializer,
-    PaymentMethodSerializer,
-)
+from apps.catalogs.models import LoanStatus
+from apps.catalogs.models import PaymentMethod
+from apps.catalogs.models import PaymentStatus
+from apps.catalogs.models import WorkdayType
+from apps.catalogs.serializers import LoanStatusSerializer
+from apps.catalogs.serializers import PaymentMethodSerializer
+from apps.catalogs.serializers import PaymentStatusSerializer
+from apps.catalogs.serializers import WorkdayTypeSerializer
 
 
 class WorkdayTypeViewSet(viewsets.ReadOnlyModelViewSet):
@@ -27,7 +25,7 @@ class WorkdayTypeViewSet(viewsets.ReadOnlyModelViewSet):
         if org_id:
             return (
                 WorkdayType.objects.filter(
-                    Q(organization_id=org_id) | Q(organization__isnull=True)
+                    Q(organization_id=org_id) | Q(organization__isnull=True),
                 )
                 .select_related("organization")
                 .order_by("order", "name")
@@ -45,10 +43,10 @@ class PaymentStatusViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PaymentStatus.objects.filter(is_active=True).order_by("order", "name")
 
 
-class TipoMovimientoDeudaViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = TipoMovimientoDeudaSerializer
+class LoanStatusViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = LoanStatusSerializer
     permission_classes = [IsAuthenticated]
-    queryset = TipoMovimientoDeuda.objects.filter(is_active=True).order_by("order", "name")
+    queryset = LoanStatus.objects.filter(is_active=True).order_by("order", "name")
 
 
 class PaymentMethodViewSet(viewsets.ReadOnlyModelViewSet):

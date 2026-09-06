@@ -335,9 +335,9 @@ export function Calendario({
               </SelectContent>
             </Select>)}
         </div>
-  
+
         <CalendarioLeyenda />
-  
+
         <div className="rounded-md border bg-card p-2">
           <FullCalendar
             ref={(el) => {
@@ -363,14 +363,14 @@ export function Calendario({
             editable={false}
           />
         </div>
-  
+
         <CalendarioResumenMes
           mesInicio={mesInicio}
           jornadas={jornadas}
           trabajadores={trabajadores}
           trabajador={tIndividual}
         />
-  
+
         {!soloLectura && popover && tIndividual && (<Popover
             open={popover.open}
             onOpenChange={(o) => {
@@ -405,7 +405,7 @@ export function Calendario({
               </JornadaEditorPopover>
             </PopoverContent>
           </Popover>)}
-  
+
         {!soloLectura && (<CalendarioDetalleDiaSheet
             abierto={detalle.abierto}
             onClose={() => setDetalle({ abierto: false, fecha: null })}

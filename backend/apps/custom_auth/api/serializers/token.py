@@ -17,7 +17,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "organization_id": getattr(user, "organization_id", None),
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
-            "is_admin_plataforma": bool(getattr(user, "is_staff", False) and getattr(user, "organization_id", None) is None),
-            "worker_profile_id": getattr(getattr(user, "worker_profile", None), "id", None),
+            "is_admin_plataforma": bool(
+                getattr(user, "is_staff", False)
+                and getattr(user, "organization_id", None) is None,
+            ),
+            "worker_profile_id": getattr(
+                getattr(user, "worker_profile", None),
+                "id",
+                None,
+            ),
         }
         return data

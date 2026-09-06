@@ -9,7 +9,7 @@ watchfiles==1.1.0  # https://github.com/samuelcolvin/watchfiles
 # ------------------------------------------------------------------------------
 mypy==1.16.1  # https://github.com/python/mypy
 django-stubs[compatible-mypy]==5.2.1  # https://github.com/typeddjango/django-stubs
-pytest==8.4.1  # https://github.com/pytest-dev/pytest
+pytest==9.0.3  # https://github.com/pytest-dev/pytest
 pytest-sugar==1.0.0  # https://github.com/Teemu/pytest-sugar
 djangorestframework-stubs==3.16.0  # https://github.com/typeddjango/djangorestframework-stubs
 
@@ -35,3 +35,5 @@ django-debug-toolbar==5.2.0  # https://github.com/jazzband/django-debug-toolbar
 django-extensions==4.1  # https://github.com/django-extensions/django-extensions
 django-coverage-plugin==3.1.1  # https://github.com/nedbat/django_coverage_plugin
 pytest-django==4.11.1  # https://github.com/pytest-dev/pytest-django
+pytest-cov==6.0.0  # https://github.com/pytest-dev/pytest-cov
+freezegun==1.5.1  # https://github.com/spulec/freezegun

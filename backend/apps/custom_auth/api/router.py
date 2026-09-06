@@ -13,9 +13,17 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 urlpatterns = [
     *router.urls,
     path("auth/token", CustomTokenObtainPairView.as_view(), name="obtain_pair_token"),
-    path("auth/token/", CustomTokenObtainPairView.as_view(), name="obtain_pair_token_slash"),
+    path(
+        "auth/token/",
+        CustomTokenObtainPairView.as_view(),
+        name="obtain_pair_token_slash",
+    ),
     path("auth/token/refresh", CookieTokenRefreshView.as_view(), name="refresh_token"),
-    path("auth/token/refresh/", CookieTokenRefreshView.as_view(), name="refresh_token_slash"),
+    path(
+        "auth/token/refresh/",
+        CookieTokenRefreshView.as_view(),
+        name="refresh_token_slash",
+    ),
     path("auth/logout", LogoutView.as_view(), name="logout"),
     path("auth/logout/", LogoutView.as_view(), name="logout_slash"),
     path("auth/me", MeView.as_view(), name="me"),

@@ -66,7 +66,7 @@ void tarif;
       <TooltipTrigger asChild>
         <div className="group relative h-full">
           <button
-            
+
             onClick={(e) => {
               e.preventDefault();
               onCycle();
@@ -98,7 +98,7 @@ void tarif;
               />)}
           </button>
           <button
-            
+
             onClick={(e) => {
               e.stopPropagation();
               onOpenEditor();

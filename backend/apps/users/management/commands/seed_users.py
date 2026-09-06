@@ -37,13 +37,12 @@ from apps.organizations.models import Organization
 from apps.users.models import User
 from apps.users.models import WorkerProfile
 
-
 # Organización por defecto para maestros y trabajadores (Fase 1 seed: 0002).
 ORG_JAIRO = "Construcciones Jairo"
 ORG_WILSON = "Construcciones Wilson"
 
-# Estructura: (email, password, group_name, is_staff, is_superuser, organization_name|None,
-#              worker_kwargs dict|None).
+# Estructura: (email, password, group_name, is_staff, is_superuser,
+# org_name|None, worker_kwargs dict|None).
 #
 # - `is_superuser=True` solo para admin plataforma.
 # - `worker_kwargs` se usa para crear WorkerProfile (id_document, hire_date).

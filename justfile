@@ -12,39 +12,39 @@ default:
 # build: Build python image.
 build *args:
     @echo "Building python image..."
-    @docker compose build {{args}}
+    @docker compose -f docker-compose.local.yml build {{args}}
 
 # up: Start up containers.
 up:
     @echo "Starting up containers..."
-    @docker compose up -d --remove-orphans
+    @docker compose -f docker-compose.local.yml up -d --remove-orphans
 
 # down: Stop containers.
 down:
     @echo "Stopping containers..."
-    @docker compose down
+    @docker compose -f docker-compose.local.yml down
 
 # prune: Remove containers and their volumes.
 prune *args:
     @echo "Killing containers and removing volumes..."
-    @docker compose down -v {{args}}
+    @docker compose -f docker-compose.local.yml down -v {{args}}
 
 # logs: View container logs
 logs *args:
-    @docker compose logs -f {{args}}
+    @docker compose -f docker-compose.local.yml logs -f {{args}}
 
 # manage: Executes `manage.py` command.
 manage +args:
-    @docker compose run --rm django python ./manage.py {{args}}
+    @docker compose -f docker-compose.local.yml run --rm django python ./manage.py {{args}}
 
 # manage-direct-db: Executes `manage.py` command directly connecting to postgres (bypasses pgbouncer).
 # Use this for migrate, createsuperuser, and other commands that don't work through pgbouncer's pool_mode=transaction.
 manage-direct-db +args:
-    @PGB_POSTGRES_HOST=postgres PGB_POSTGRES_PORT=5432 docker compose run --rm django python ./manage.py {{args}}
+    @PGB_POSTGRES_HOST=postgres PGB_POSTGRES_PORT=5432 docker compose -f docker-compose.local.yml run --rm django python ./manage.py {{args}}
 
 # pytest: Run tests with pytest.
 pytest *args:
-    @docker compose run --rm django pytest {{args}}
+    @docker compose -f docker-compose.local.yml run --rm django pytest {{args}}
 
 
 # ==============================================================================
@@ -121,7 +121,7 @@ test-backend *args:
     set -euo pipefail
     just _requiere-servicio postgres backend
     echo "-> pytest (contenedor django)"
-    docker compose run --rm django pytest {{args}}
+    docker compose -f docker-compose.local.yml run --rm django pytest {{args}}
 
 # test-frontend: lint + build en el host. No necesita contenedores.
 test-frontend *args:
@@ -146,12 +146,12 @@ test-frontend *args:
 _requiere-servicio servicio suite:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! docker compose ps --services --status running 2>/dev/null | grep -qx "{{servicio}}"; then
+    if ! docker compose -f docker-compose.local.yml ps --services --status running 2>/dev/null | grep -qx "{{servicio}}"; then
         echo "" >&2
         echo "ERROR: la suite '{{suite}}' necesita el servicio '{{servicio}}' corriendo." >&2
         echo "" >&2
         echo "  Servicios activos ahora:" >&2
-        docker compose ps --services --status running 2>/dev/null | sed 's/^/    - /' >&2 || true
+        docker compose -f docker-compose.local.yml ps --services --status running 2>/dev/null | sed 's/^/    - /' >&2 || true
         echo "" >&2
         echo "  Levanta el stack con:  just up" >&2
         echo "" >&2
@@ -210,7 +210,7 @@ ci-local:
 
     echo ""
     echo ">> [1/2] BACKEND (pytest --create-db)"
-    docker compose run --rm django pytest --create-db
+    docker compose -f docker-compose.local.yml run --rm django pytest --create-db
 
     if ! command -v pnpm >/dev/null 2>&1; then
         echo "ERROR: pnpm no esta instalado en el host." >&2

@@ -61,7 +61,8 @@ def rotate_logs_task(self):
 
     Note:
         - Configurado con soft_time_limit=120s y time_limit=180s
-        - Procesa el archivo configurado en DJANGO_NAME_LOG_FILE (default: django_dev.log)
+        - Procesa el archivo configurado en DJANGO_NAME_LOG_FILE  # noqa: E501
+          (default: django_dev.log)
         - Envía señales USR1 para reabrir logs en procesos activos (sin Docker)
         - Política de retención: comprimir >7 días, eliminar >30 días
     """

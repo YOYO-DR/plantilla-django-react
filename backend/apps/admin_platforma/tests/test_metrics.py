@@ -25,7 +25,7 @@ def org(db):
 
 @pytest.fixture
 def admin_plataforma(db):
-    # Email único por test para evitar colisión con seed (0003_seed_users).
+    # Email único por test para evitar colisión con seed (seed_users).
     return User.objects.create_user(
         email=f"admin-{uuid.uuid4().hex[:8]}@test.local",
         password="admin123",  # noqa: S106
@@ -70,9 +70,12 @@ def test_metrics_admin_ok(admin_plataforma, org, worker_user):
     resp = api.get("/api/metrics/")
     assert resp.status_code == HTTP_OK
     data = resp.json()
-    assert "tenants_total" in data
-    assert "users_total" in data
     assert data["tenants_total"] >= 1
+    assert data["users_total"] >= 1
+    # Nuevas claves tras Fase A (Payment/Loan-based)
+    assert "loans_total" in data
+    assert "payments_total" in data
+    assert "payments_monto_total" in data
 
 
 @pytest.mark.django_db

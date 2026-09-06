@@ -49,11 +49,13 @@ dev = [
   "djangorestframework-stubs==3.17.0",
   "djlint==1.39.2",
   "factory-boy==3.3.3",
+  "freezegun==1.5.1",
   "ipdb==0.13.13",
   "mypy==2.1.0",
   "pre-commit==4.6.0",
   "psycopg[c]==3.3.4",
   "pytest==9.0.3",
+  "pytest-cov==6.0.0",
   "pytest-django==4.12.0",
   "pytest-sugar==1.1.1",
   "ruff==0.15.17",
@@ -169,17 +171,17 @@ overrides = [
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
 
-# ==== pytest ====
 [tool.pytest]
-addopts = [
+ini_options.minversion = "9.0"
+ini_options.python_files = [
+  "test_*.py",
+  "tests.py",
+]
+# ==== pytest ====
+ini_options.addopts = [
   "--ds=config.settings.test",
   "--reuse-db",
   "--import-mode=importlib",
-]
-minversion = "9.0"
-python_files = [
-  "tests.py",
-  "test_*.py",
 ]
 
 [tool.coverage]
@@ -187,3 +189,10 @@ python_files = [
 run.include = [ "apps/**" ]
 run.omit = [ "*/migrations/*", "*/tests/*" ]
 run.plugins = [ "django_coverage_plugin" ]
+# Regla transversal 2 del plan: cobertura mínima 90% global, 100% en
+# servicios de dinero. El gate del 90% se aplica a la cobertura global;
+# la regla del 100% en services/ se valida por inspección (sin gate
+# automático hasta tener un módulo ``services/`` activo en Fase B).
+report.fail_under = 90
+report.show_missing = true
+report.skip_covered = false

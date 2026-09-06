@@ -14,10 +14,10 @@ def _media_storage(settings, tmpdir) -> None:
 
 
 @pytest.fixture
-def user(db) -> "User":
+def user(db) -> User:
     # Lazy import: factories.py triggers Django model resolution which
     # requires `django.setup()` to have run. pytest-django runs that in
     # the pytest_configure phase, AFTER conftest module imports.
-    from apps.users.tests.factories import UserFactory
+    from apps.users.tests.factories import UserFactory  # noqa: PLC0415
 
     return UserFactory.create()

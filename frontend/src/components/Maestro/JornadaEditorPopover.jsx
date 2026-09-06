@@ -93,7 +93,7 @@ export function JornadaEditorPopover({
         <div className="space-y-1.5">
           <Label>Tipo de día</Label>
           <ToggleGroup
-            
+
             value={tipo}
             onValueChange={(v) => {
               if (!v || liquidada) return;
@@ -157,7 +157,7 @@ export function JornadaEditorPopover({
                 className="num"
               />
               {tarifaOverride !== null && !liquidada && (<Button
-                  
+
                   variant="outline"
                   size="sm"
                   onClick={() => {
@@ -200,7 +200,7 @@ export function JornadaEditorPopover({
               </p>)}
           </div>
           {jornada && !liquidada && onDelete && (<Button
-              
+
               variant="ghost"
               size="icon"
               className="text-destructive"

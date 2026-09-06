@@ -1,4 +1,4 @@
-"""Vistas para admin plataforma: métricas globales + gestión de tenants."""
+"""Vistas para admin plataforma: métricas globales."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.organizations.models import Organization
-from apps.payments.models import Liquidacion
+from apps.payments.models import Loan
+from apps.payments.models import Payment
 from apps.users.models import User
 from apps.users.permissions import IsAdminPlataforma
 from apps.workdays.models import Workday
@@ -20,7 +21,8 @@ from apps.workdays.models import Workday
 def metrics(request):
     """Métricas globales para el dashboard de admin plataforma."""
     qs_workdays = Workday.objects.all()
-    qs_liqs = Liquidacion.objects.all()
+    qs_payments = Payment.objects.filter(voided_at__isnull=True)
+    qs_loans = Loan.objects.all()
     return Response(
         {
             "tenants_total": Organization.objects.count(),
@@ -31,9 +33,10 @@ def metrics(request):
                 groups__name="Trabajador",
             ).count(),
             "workdays_total": qs_workdays.count(),
-            "liquidaciones_total": qs_liqs.count(),
-            "liquidaciones_monto_total": str(
-                qs_liqs.aggregate(t=Sum("total_pagado"))["t"] or 0,
+            "loans_total": qs_loans.count(),
+            "payments_total": qs_payments.count(),
+            "payments_monto_total": str(
+                qs_payments.aggregate(t=Sum("total_amount"))["t"] or 0,
             ),
         },
     )

@@ -16,6 +16,28 @@ SECRET_KEY = env(
 # https://docs.djangoproject.com/en/dev/ref/settings/#test-runner
 TEST_RUNNER = "django.test.runner.DiscoverRunner"
 
+# DATABASE OVERRIDE — direct postgres, pgbouncer fuera de los tests
+# ------------------------------------------------------------------------------
+# pgbouncer en ``pool_mode=transaction`` no soporta ``CREATE DATABASE``
+# ni ``DROP DATABASE``, necesarios para crear / destruir la base de
+# tests. pytest-django se conecta por aquí. Sobreescribimos el dict
+# heredado de base.py para apuntar directo al postgres del compose,
+# pasando por alto pgbouncer (que sí sigue siendo el gateway en runtime).
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": env("POSTGRES_HOST", default="postgres"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        "NAME": env("POSTGRES_DB", default="jornal_pro_trabajadores"),
+        "USER": env("POSTGRES_USER", default="debug"),
+        "PASSWORD": env("POSTGRES_PASSWORD", default="debug"),
+        "TEST": {
+            "NAME": "test_jornal_pro_trabajadores",
+        },
+        "ATOMIC_REQUESTS": False,
+    },
+}
+
 # PASSWORDS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#password-hashers

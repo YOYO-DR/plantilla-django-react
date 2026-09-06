@@ -108,7 +108,7 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
     if (!nombreValor || nombreValor.trim().length < 3) return;
     const sugerido = inferirUsuarioDesdeNombre(nombreValor);
     setValue("usuario",sugerido,{ shouldDirty: false });
-     
+
   },[nombreValor, isCrear]);
 
   // Generar password por defecto la primera vez (solo crear)
@@ -116,7 +116,7 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
     if (!isCrear) return;
     const current = watch("password") ?? "";
     if (!current) setValue("password",generarPassword(10));
-     
+
   },[isCrear]);
 
   const valorMedioDia = useMemo(() => Math.round(tarifaDiaBase * factorMedioDia),[tarifaDiaBase, factorMedioDia],
@@ -281,7 +281,7 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
             <Label htmlFor="tarifaDiaBase">Tarifa por día (COP)</Label>
             <Input
               id="tarifaDiaBase"
-              
+
               inputMode="numeric"
               placeholder="85.000"
               value={tarifaTexto}
@@ -306,9 +306,9 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="fechaIngreso">Fecha de ingreso</Label>
-            <Input id="fechaIngreso" 
+            <Input id="fechaIngreso"
                     id="factorMedioDia"
-                    
+
                     inputMode="decimal"
                     value={factorTexto}
                     onChange={(e) => {
@@ -385,13 +385,13 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
               <div className="flex items-center gap-2">
                 <Input
                   id="password"
-                  
+
                   className="font-mono"
                   {...register("password")}
                   aria-invalid={!!errPassword}
                 />
                 <Button
-                  
+
                   variant="outline"
                   size="icon"
                   className="min-h-tap min-w-tap"

@@ -15,7 +15,8 @@ class UserQuerySet(models.QuerySet):
 class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
-            raise ValueError("El email es obligatorio.")
+            msg = "El email es obligatorio."
+            raise ValueError(msg)
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)

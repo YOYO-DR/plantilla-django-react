@@ -253,7 +253,7 @@ export function AsistenteLiquidacion({
                 },
               ]).map((op) => (<button
                 key={op.key}
-                
+
                 onClick={() => setModo(op.key)}
                 className={`w-full rounded-md border p-3 text-left transition-colors ${
                   modo === op.key
@@ -285,7 +285,7 @@ export function AsistenteLiquidacion({
               <div className="flex flex-wrap gap-1">
                 {[0.25, 0.5, 0.75].map((p) => (<Button
                     key={p}
-                    
+
                     variant="outline"
                     size="sm"
                     className="h-7 px-2 text-xs num"
@@ -296,7 +296,7 @@ export function AsistenteLiquidacion({
                     {Math.round(p * 100)}%
                   </Button>))}
                 <Button
-                  
+
                   variant="outline"
                   size="sm"
                   className="h-7 px-2 text-xs"
@@ -353,7 +353,7 @@ export function AsistenteLiquidacion({
               <Label htmlFor="fechaPago">Fecha de pago</Label>
               <Input
                 id="fechaPago"
-                
+
                 value={fechaPago}
                 onChange={(e) => setFechaPago(e.target.value)}
               />

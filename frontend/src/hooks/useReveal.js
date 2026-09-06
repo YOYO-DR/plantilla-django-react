@@ -11,7 +11,7 @@ export function useReveal(opciones = {}) {
     const el = ref.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") {
-       
+
       setVisible(true);
       return;
     }

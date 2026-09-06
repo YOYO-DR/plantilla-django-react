@@ -6,11 +6,10 @@ import pytest
 
 @pytest.fixture
 def user_with_password(django_user_model):
-    user = django_user_model.objects.create_user(
+    return django_user_model.objects.create_user(
         email="testuser@jornalpro.dev",
         password="testpass123",
     )
-    return user
 
 
 @pytest.mark.django_db
@@ -41,7 +40,7 @@ def test_login_wrong_password(client, user_with_password):
 
 @pytest.mark.django_db
 def test_refresh_via_cookie(client, user_with_password):
-    login = client.post(
+    client.post(
         "/api/auth/token",
         {"email": "testuser@jornalpro.dev", "password": "testpass123"},
         format="json",
@@ -58,7 +57,7 @@ def test_refresh_via_cookie(client, user_with_password):
 
 @pytest.mark.django_db
 def test_logout_returns_200(client, user_with_password):
-    """Validar que el endpoint responde (logout OK con blacklist tolerante a refresh faltante)."""
+    """Logout responde OK; blacklist tolera refresh faltante."""
     login = client.post(
         "/api/auth/token",
         {"email": "testuser@jornalpro.dev", "password": "testpass123"},

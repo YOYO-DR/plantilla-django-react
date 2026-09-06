@@ -1,3 +1,10 @@
+"""Catálogos reutilizables de JornalPro.
+
+Tablas de catálogo para reglas de negocio configurables: tipos de
+jornada, estados de pago, estados de préstamo y métodos de pago. Se
+resuelven en español en la UI y se exponen vía API.
+"""
+
 from __future__ import annotations
 
 from django.db import models
@@ -20,12 +27,12 @@ class CatalogBase(models.Model):
         abstract = True
         ordering = ["order", "name"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
 class WorkdayType(CatalogBase):
-    """Tipo de jornada con factor multiplicador sobre la tarifa."""
+    """Tipo de jornada con factor multiplicador sobre la tarifa del trabajador."""
 
     organization = models.ForeignKey(
         Organization,
@@ -33,44 +40,59 @@ class WorkdayType(CatalogBase):
         related_name="workday_types",
         null=True,
         blank=True,
+        verbose_name="Organización",
         help_text="Vacío = catálogo global compartido por todas las organizaciones.",
     )
-    factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00, verbose_name="Factor")
+    factor = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default="1.00",
+        verbose_name="Factor",
+    )
 
     class Meta(CatalogBase.Meta):
         verbose_name = "Tipo de jornada"
         verbose_name_plural = "Tipos de jornada"
-        unique_together = ("organization", "name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "name"],
+                name="unique_workday_type_per_org",
+            ),
+        ]
         indexes = [models.Index(fields=["is_active"])]
 
 
 class PaymentStatus(CatalogBase):
+    """Estado de pago de una jornada (Pendiente, Parcial, Pagado)."""
+
     class Meta(CatalogBase.Meta):
         verbose_name = "Estado de pago"
         verbose_name_plural = "Estados de pago"
-        unique_together = ("name",)
+        constraints = [
+            models.UniqueConstraint(fields=["name"], name="unique_payment_status"),
+        ]
         indexes = [models.Index(fields=["is_active"])]
 
 
-class TipoMovimientoDeuda(CatalogBase):
-    """Tipo de movimiento sobre la deuda del trabajador (préstamo/abono/ajuste)."""
-
-    affects_balance = models.BooleanField(
-        default=True,
-        verbose_name="Afecta saldo",
-        help_text="Si True, suma al saldo de deuda; si False, resta.",
-    )
+class LoanStatus(CatalogBase):
+    """Estado del préstamo (Activo, Pagado, Condonado)."""
 
     class Meta(CatalogBase.Meta):
-        verbose_name = "Tipo de movimiento de deuda"
-        verbose_name_plural = "Tipos de movimiento de deuda"
-        unique_together = ("name",)
+        verbose_name = "Estado de préstamo"
+        verbose_name_plural = "Estados de préstamo"
+        constraints = [
+            models.UniqueConstraint(fields=["name"], name="unique_loan_status"),
+        ]
         indexes = [models.Index(fields=["is_active"])]
 
 
 class PaymentMethod(CatalogBase):
+    """Método de pago de un comprobante (Efectivo, Transferencia, Nequi, Daviplata)."""
+
     class Meta(CatalogBase.Meta):
         verbose_name = "Método de pago"
         verbose_name_plural = "Métodos de pago"
-        unique_together = ("name",)
+        constraints = [
+            models.UniqueConstraint(fields=["name"], name="unique_payment_method"),
+        ]
         indexes = [models.Index(fields=["is_active"])]
