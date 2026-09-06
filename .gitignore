@@ -1,1 +1,10 @@
+# Capturas de validación Playwright / Sphinx en raíz del repo
+sphinx-*.png
+*-validation-*.png
+*.playwright-mcp-screenshot.png
+
 .playwright-mcp/
+
+# Build artifacts de Sphinx (se regeneran con `just docs-build`)
+docs/_build/
+docs/_sources/

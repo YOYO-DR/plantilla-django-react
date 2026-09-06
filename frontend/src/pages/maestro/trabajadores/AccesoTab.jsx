@@ -118,7 +118,9 @@ export function AccesoTab({ trabajador, usuario }) {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              ⚠️ Prototipo — las contraseñas viven en este navegador.
+              La contraseña se guarda hasheada en el backend. El "Restablecer" del
+              prototipo la regenera a un valor aleatorio y la muestra una sola vez;
+              en producción se enviará por correo.
             </p>
           </div>
         </CardContent>

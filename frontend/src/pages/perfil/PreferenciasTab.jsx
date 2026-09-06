@@ -132,7 +132,9 @@ export function PreferenciasTab() {
           <NotifRow label="Aviso de cierre semanal" />
           <NotifRow label="Préstamos nuevos del maestro" />
           <p className="text-xs text-muted-foreground">
-            Próximamente — estas preferencias sólo son decorativas en el prototipo.
+            Próximamente — el tema y tamaño de texto ya se persisten en localStorage;
+            las preferencias de notificación se guardarán en el backend cuando
+            exista el endpoint correspondiente.
           </p>
         </CardContent>
       </Card>

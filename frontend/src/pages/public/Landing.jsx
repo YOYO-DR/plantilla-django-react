@@ -366,7 +366,7 @@ function SeccionHero() {
             </Button>
           </div>
           <p className="mt-4 text-xs text-surface-foreground/60">
-            Prototipo funcional — datos solo en este navegador, listos para mostrarse.
+            Plataforma full-stack — frontend React + backend Django + PostgreSQL.
           </p>
         </Reveal>
 
@@ -723,7 +723,7 @@ function SeccionDemo() {
             Tres credenciales, tres espacios.
           </h2>
           <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            Estas son las cuentas del prototipo. Toca cualquier tarjeta para entrar y explorar.
+            Estas son las cuentas semilla. Toca cualquier tarjeta para entrar y explorar.
           </p>
         </Reveal>
 
@@ -821,13 +821,14 @@ function SeccionStack() {
             <div className="rounded-xl border bg-card p-5">
               <h3 className="display text-base font-semibold">Construido con</h3>
               <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                <li>· React 19 + TypeScript + Vite</li>
-                <li>· Tailwind CSS + shadcn/ui</li>
+                <li>· React 19 + Vite + Tailwind CSS + shadcn/ui</li>
+                <li>· Django 6 + Django REST Framework + SimpleJWT</li>
+                <li>· PostgreSQL 18 (con pgbouncer) + Redis 7</li>
+                <li>· Docker Compose para todo el stack</li>
                 <li>· FullCalendar (v6) para el calendario mensual</li>
                 <li>· recharts para los gráficos del panel admin</li>
                 <li>· date-fns (locale <span className="font-mono">es</span>)</li>
                 <li>· React Hook Form + Zod para formularios</li>
-                <li>· Persistencia en <span className="font-mono">localStorage</span> con clave <span className="font-mono">jornalpro:v1:*</span></li>
               </ul>
             </div>
           </Reveal>
@@ -835,14 +836,14 @@ function SeccionStack() {
             <div className="rounded-xl border bg-card p-5">
               <h3 className="display text-base font-semibold">Lo que <em>no</em> es (todavía)</h3>
               <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                <li>· No hay backend — los datos viven en tu navegador.</li>
-                <li>· Las contraseñas se guardan en texto plano (es prototipo).</li>
                 <li>· No hay notificaciones push ni SMS.</li>
                 <li>· No hay reportes PDF exportables todavía (sólo print del comprobante).</li>
+                <li>· No hay integración con pasarela de pagos (los pagos se registran manualmente).</li>
               </ul>
-              <p className="mt-4 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
-                Prototipo funcional sin backend. Todos los datos se guardan en tu navegador y
-                puedes restablecerlos desde <span className="font-mono">Perfil → Preferencias → Zona de datos</span>.
+              <p className="mt-4 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-xs text-muted-foreground">
+                Sistema full-stack: frontend React, backend Django REST, persistencia en
+                PostgreSQL. Para crear datos de prueba corre
+                <span className="font-mono"> just manage-direct-db seed_users --yes</span>.
               </p>
             </div>
           </Reveal>

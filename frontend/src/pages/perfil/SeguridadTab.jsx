@@ -103,7 +103,8 @@ export function SeguridadTab() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            ⚠️ Recordatorio: este prototipo guarda la contraseña en este navegador.
+            La contraseña se guarda hasheada en el backend (Django + Argon2). El navegador
+            solo retiene el access token (memoria) y el refresh token (cookie HttpOnly).
           </p>
           <div className="flex justify-end">
             <Button type="submit">

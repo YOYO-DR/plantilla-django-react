@@ -12,7 +12,7 @@ Documentación auto-generada de la API, modelos y guías del proyecto.
 
 
 Documentación complementaria (Markdown)
---------------------------------------
+---------------------------------------
 
 Estos archivos viven junto a este directorio y NO son generados por
 Sphinx; se mantienen manualmente:
@@ -34,5 +34,4 @@ Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

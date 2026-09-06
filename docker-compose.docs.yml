@@ -4,7 +4,7 @@ services:
     container_name: jornal_pro_trabajadores_local_docs
     build:
       context: ./backend
-      dockerfile: ./backend/compose/local/docs/Dockerfile
+      dockerfile: ./compose/local/docs/Dockerfile
     env_file:
       - ./backend/.envs/.local/.django
     volumes:

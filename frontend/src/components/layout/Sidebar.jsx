@@ -39,7 +39,7 @@ const ITEMS_POR_ROL = {
 export function Sidebar({ rol }) {
   const items = ITEMS_POR_ROL[rol];
 
-  return (<aside className="hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block lg:w-60 lg:shrink-0">
+  return (<aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] self-start overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block lg:w-60 lg:shrink-0">
       <nav className="flex flex-col gap-1 px-3 py-4">
         <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
           {rol === "maestro"

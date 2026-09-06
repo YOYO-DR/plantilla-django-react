@@ -141,7 +141,7 @@ export default function Login() {
         </div>
 
         <p className="text-xs text-surface-foreground/50">
-          © {new Date().getFullYear()} JornalPro · Prototipo de demostración
+          © {new Date().getFullYear()} JornalPro · Plataforma de gestión de jornales
         </p>
       </aside>
 
@@ -223,15 +223,16 @@ export default function Login() {
               <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                 <span>
-                  <strong className="text-foreground">Prototipo de demostración</strong> —
-                  los datos viven solo en este navegador.
+                  <strong className="text-foreground">Autenticación real</strong> —
+                  las credenciales se validan contra el backend Django + SimpleJWT.
+                  Para sembrar usuarios de prueba: <span className="font-mono">just manage-direct-db seed_users --yes</span>.
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <Link to="/" className="hover:text-foreground">← Volver al inicio</Link>
                 <span className="inline-flex items-center gap-1">
-                  <Lock className="h-3 w-3" /> Auth simulada
+                  <Lock className="h-3 w-3" /> SimpleJWT HttpOnly refresh
                 </span>
               </div>
             </CardContent>
