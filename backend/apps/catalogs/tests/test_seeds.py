@@ -13,14 +13,12 @@ estos tests solo verifican el estado final del catálogo.
 from __future__ import annotations
 
 import pytest
+from django.contrib.auth.models import Group
 
-from apps.catalogs.models import (
-    LoanStatus,
-    PaymentMethod,
-    PaymentStatus,
-    WorkdayType,
-)
-
+from apps.catalogs.models import LoanStatus
+from apps.catalogs.models import PaymentMethod
+from apps.catalogs.models import PaymentStatus
+from apps.catalogs.models import WorkdayType
 
 SEED = [
     (WorkdayType, "Día completo", {"factor": "1.00", "order": 0}),
@@ -48,8 +46,6 @@ def _reseed() -> None:
     """
     for model, name, defaults in SEED:
         model.objects.get_or_create(name=name, defaults=defaults)
-    from django.contrib.auth.models import Group
-
     for name in GROUP_NAMES:
         Group.objects.get_or_create(name=name)
 
@@ -86,7 +82,5 @@ def test_payment_method_seeds_exist():
 def test_groups_exist():
     """La data migration 0002_groups creó los grupos de Django auth."""
     _reseed()
-    from django.contrib.auth.models import Group
-
     for n in GROUP_NAMES:
         assert Group.objects.filter(name=n).exists()

@@ -4,24 +4,19 @@ from __future__ import annotations
 
 import pytest
 
-from apps.catalogs.tests.factories import (
-    LoanStatusFactory,
-    PaymentMethodFactory,
-    PaymentStatusFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import LoanStatusFactory
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.catalogs.tests.factories import PaymentStatusFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.organizations.tests.factories import OrganizationFactory
-from apps.payments.tests.factories import (
-    LoanFactory,
-    PaymentFactory,
-    PaymentLoanDetailFactory,
-    PaymentWorkdayDetailFactory,
-)
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
-from apps.workdays.tests.factories import WorkdayFactory, WorkerRateFactory
+from apps.payments.tests.factories import LoanFactory
+from apps.payments.tests.factories import PaymentFactory
+from apps.payments.tests.factories import PaymentLoanDetailFactory
+from apps.payments.tests.factories import PaymentWorkdayDetailFactory
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
+from apps.workdays.tests.factories import WorkdayFactory
+from apps.workdays.tests.factories import WorkerRateFactory
 
 
 @pytest.mark.django_db

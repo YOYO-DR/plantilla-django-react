@@ -1,4 +1,4 @@
-"""Admin Django para organizaciones (Fase A — agregado por dependencia de autocomplete)."""
+"""Admin Django para organizaciones (Fase A — autocomplete dependency)."""
 
 from __future__ import annotations
 

@@ -32,7 +32,13 @@ class LoanAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("worker", "payment_method", "total_amount", "payment_date", "voided_at")
+    list_display = (
+        "worker",
+        "payment_method",
+        "total_amount",
+        "payment_date",
+        "voided_at",
+    )
     list_filter = ("payment_method", "voided_at", "payment_date")
     search_fields = ("worker__user__email", "worker__user__name", "notes")
     autocomplete_fields = (

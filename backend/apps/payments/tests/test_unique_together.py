@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 import pytest
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
+from django.db import transaction
 
-from apps.catalogs.tests.factories import (
-    PaymentMethodFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.organizations.tests.factories import OrganizationFactory
-from apps.payments.tests.factories import (
-    LoanFactory,
-    PaymentFactory,
-    PaymentLoanDetailFactory,
-    PaymentWorkdayDetailFactory,
-)
-from apps.users.tests.factories import WorkerProfileFactory
+from apps.payments.tests.factories import LoanFactory
+from apps.payments.tests.factories import PaymentFactory
+from apps.payments.tests.factories import PaymentLoanDetailFactory
+from apps.payments.tests.factories import PaymentWorkdayDetailFactory
 from apps.workdays.tests.factories import WorkdayFactory
 
 

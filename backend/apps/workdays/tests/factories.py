@@ -8,14 +8,9 @@ import factory
 from factory import SubFactory
 from factory.django import DjangoModelFactory
 
-from apps.catalogs.tests.factories import (
-    PaymentStatusFactory,
-    WorkdayTypeFactory,
-)
+from apps.catalogs.tests.factories import PaymentStatusFactory
+from apps.catalogs.tests.factories import WorkdayTypeFactory
 from apps.users.tests.factories import WorkerProfileFactory
-
-from apps.workdays.models import Workday
-from apps.workdays.models import WorkerRate
 
 
 class WorkerRateFactory(DjangoModelFactory):

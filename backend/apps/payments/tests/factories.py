@@ -8,20 +8,11 @@ import factory
 from factory import SubFactory
 from factory.django import DjangoModelFactory
 
-from apps.catalogs.tests.factories import (
-    LoanStatusFactory,
-    PaymentMethodFactory,
-)
-from apps.users.tests.factories import (
-    UserFactory,
-    WorkerProfileFactory,
-)
+from apps.catalogs.tests.factories import LoanStatusFactory
+from apps.catalogs.tests.factories import PaymentMethodFactory
+from apps.users.tests.factories import UserFactory
+from apps.users.tests.factories import WorkerProfileFactory
 from apps.workdays.tests.factories import WorkdayFactory
-
-from apps.payments.models import Loan
-from apps.payments.models import Payment
-from apps.payments.models import PaymentLoanDetail
-from apps.payments.models import PaymentWorkdayDetail
 
 
 class LoanFactory(DjangoModelFactory):
