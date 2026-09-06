@@ -95,7 +95,7 @@ def test_allocation_for_nonexistent_loan_raises():
 
     # LoanAllocation con un ``Loan`` cuya id NO está en la queryset.
     # En la práctica: loan_nuevo es un Loan no persistido.
-    from apps.payments.models import Loan as LoanModel  # noqa: PLC0415
+    from apps.payments.models import Loan as LoanModel
 
     fantasma = LoanModel(
         worker=profile,

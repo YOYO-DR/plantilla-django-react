@@ -8,6 +8,7 @@ from django.contrib.auth.models import Group
 from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.mixins import DestroyModelMixin
 from rest_framework.mixins import ListModelMixin
 from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.mixins import UpdateModelMixin
@@ -18,6 +19,8 @@ from apps.users.models import User
 from apps.users.models import WorkerProfile
 from apps.users.permissions import IsAdminPlataforma
 from apps.users.permissions import IsMaestro
+from apps.users.permissions import IsMaestroOrAdminPlataforma
+from apps.users.permissions import IsOrganizationMember
 
 from .serializers import UserSerializer
 from .serializers import WorkerProfileSerializer
@@ -44,6 +47,13 @@ class UserViewSet(
 
     serializer_class = UserSerializer
     queryset = User.objects.all().order_by("id")
+    permission_classes = [IsAdminPlataforma]
+
+    def get_permissions(self):
+        """Lectura: cualquier autenticado. Escritura: solo maestro/admin."""
+        if self.request.method in {"GET", "HEAD", "OPTIONS"}:
+            return [IsOrganizationMember()]
+        return [IsMaestroOrAdminPlataforma()]
 
     def get_queryset(self):
         user = self.request.user
@@ -81,6 +91,8 @@ class UserViewSet(
 class WorkerProfileViewSet(
     ListModelMixin,
     RetrieveModelMixin,
+    UpdateModelMixin,
+    DestroyModelMixin,
     GenericViewSet,
 ):
     """CRUD básico para ``WorkerProfile``. Escritura solo maestro/admin."""

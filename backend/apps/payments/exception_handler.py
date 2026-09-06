@@ -85,7 +85,10 @@ def journalpro_exception_handler(exc, context):
         )
 
     if isinstance(exc, Http404):
-        return Response({"detail": str(exc) or "No encontrado."}, status=status.HTTP_404_NOT_FOUND)  # noqa: E501
+        return Response(
+            {"detail": str(exc) or "No encontrado."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
     if isinstance(exc, APIException):
         return drf_exception_handler(exc, context)

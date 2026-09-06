@@ -48,13 +48,13 @@ def _maestro_de_org(org):
 
 
 def _status(name):
-    from apps.payments.models import PaymentStatus  # noqa: PLC0415
+    from apps.payments.models import PaymentStatus
 
     return PaymentStatus.objects.get(name=name)
 
 
 def _loan_status(name):
-    from apps.payments.models import LoanStatus  # noqa: PLC0415
+    from apps.payments.models import LoanStatus
 
     return LoanStatus.objects.get(name=name)
 
@@ -438,7 +438,7 @@ def test_register_payment_double_payment_same_workday_raises_integrityerror():
 
 @pytest.mark.django_db
 def test_register_payment_cross_organization_rejected():
-    """Pago que mezcla worker de una org con workday de otra → ``CrossOrganizationError``."""  # noqa: E501
+    """Pago que mezcla worker de una org con workday de otra → ``CrossOrganizationError``."""
     org_a = OrganizationFactory(name="Org A")
     org_b = OrganizationFactory(name="Org B")
     worker_a = WorkerProfileFactory(user=UserFactory(organization=org_a))
@@ -501,7 +501,7 @@ def test_register_payment_cross_worker_loan_rejected():
 
 @pytest.mark.django_db
 def test_void_payment_reverts_mixed_payment():
-    """Pago mixto: tras anular, préstamo recupera saldo y jornadas vuelven a Pendiente."""  # noqa: E501
+    """Pago mixto: tras anular, préstamo recupera saldo y jornadas vuelven a Pendiente."""
     profile = WorkerProfileFactory()
     org = profile.user.organization
     maestro = _maestro_de_org(org)
@@ -772,9 +772,9 @@ def test_register_payment_concurrent_no_negative_balance():
     """Dos ``register_payment`` simultáneos sobre el mismo préstamo no
     producen saldo negativo gracias a ``select_for_update``.
     """
-    import threading  # noqa: PLC0415
+    import threading
 
-    from django.db import close_old_connections  # noqa: PLC0415
+    from django.db import close_old_connections
 
     profile = WorkerProfileFactory()
     org = profile.user.organization

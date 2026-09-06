@@ -62,11 +62,11 @@ def test_workday_creation_sets_applied_rate_from_factor(
     workday_type.factor = "1.00"
     workday_type.save()
     # El endpoint requiere permisos de maestro/admin para POST.
-    from django.contrib.auth.models import Group  # noqa: PLC0415
+    from django.contrib.auth.models import Group
 
     maestro, _ = Group.objects.get_or_create(name="Maestro")
     worker_user.groups.add(maestro)
-    from apps.workdays.tests.factories import WorkerRateFactory  # noqa: PLC0415
+    from apps.workdays.tests.factories import WorkerRateFactory
 
     WorkerRateFactory(
         worker=worker_user.worker_profile,

@@ -133,7 +133,7 @@ def test_void_payment_preserves_condonado_status():
 
     # Forzar manualmente status a Condonado para simular "el préstamo
     # pasó a Pagado → después el maestro decide Condonarlo".
-    from apps.payments.models import LoanStatus  # noqa: PLC0415
+    from apps.payments.models import LoanStatus
 
     condonado = LoanStatus.objects.get(name="Condonado")
     loan.status = condonado
@@ -153,7 +153,7 @@ def test_void_payment_preserves_condonado_status():
 
 @pytest.mark.django_db
 def test_void_payment_active_loan_becomes_activo_after_reverse():
-    """Si el préstamo estaba Activo antes del pago, tras anular vuelve a Activo con saldo pendiente."""  # noqa: E501
+    """Si el préstamo estaba Activo antes del pago, tras anular vuelve a Activo con saldo pendiente."""
     profile = WorkerProfileFactory()
     maestro = UserFactory(organization=profile.user.organization)
     loan = create_loan(

@@ -28,7 +28,7 @@ def test_update_workday_changes_only_workday_type():
 
 @pytest.mark.django_db
 def test_update_workday_changes_only_date():
-    from datetime import date  # noqa: PLC0415
+    from datetime import date
 
     wd = WorkdayFactory()
     update_workday(workday=wd, date=date(2027, 1, 1))

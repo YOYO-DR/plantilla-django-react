@@ -152,7 +152,7 @@ def test_overpayment_error_branch_with_full_then_partial_workday():
     )
 
     # Segundo intento: explícito 1.00 sobre la misma jornada ya pagada → overpayment.
-    from apps.payments.exceptions import OverpaymentError  # noqa: PLC0415
+    from apps.payments.exceptions import OverpaymentError
 
     with pytest.raises(OverpaymentError, match="excede applied_rate"):
         register_payment(
@@ -235,7 +235,7 @@ def test_inconsistent_payment_total_when_loan_details_sum_drifted():
 @pytest.mark.django_db
 def test_inconsistent_payment_total_helper_directly_raises():
     """Llamada directa al helper de consistencia con suma drifted."""
-    from apps.payments.services import _raise_if_inconsistent_total  # noqa: PLC0415
+    from apps.payments.services import _raise_if_inconsistent_total
 
     profile = WorkerProfileFactory()
     maestro = UserFactory(organization=profile.user.organization)

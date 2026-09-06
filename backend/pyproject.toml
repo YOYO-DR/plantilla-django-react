@@ -147,7 +147,12 @@ lint.ignore = [
 ]
 # En tests los magic values (status codes HTTP, ids) son descriptivos y se
 # leen mejor literales que constantes abstractas.
-lint.per-file-ignores = { "apps/**/tests/**/*.py" = [ "PLR2004", "N817" ] }
+lint.per-file-ignores = { "apps/**/tests/**/*.py" = [
+  "PLR2004", # magic values (status codes HTTP, ids) son descriptivos
+  "N817",    # alias ``WP`` solo en tests, no en código de producción
+  "PLC0415", # imports dentro de tests están bien (cargan factories)
+  "E501",    # líneas largas en docstrings/tests son aceptables
+] }
 lint.isort.force-single-line = true
 
 # ==== pyproject-fmt ====
@@ -199,3 +204,8 @@ run.plugins = [ "django_coverage_plugin" ]
 report.fail_under = 90
 report.show_missing = true
 report.skip_covered = false
+# Excluir ``if TYPE_CHECKING:`` (bloques solo para type checkers) y
+# ``pragma: no cover`` del cómputo. ``if TYPE_CHECKING`` no se ejecuta
+# nunca en runtime; los ``pragma`` se usan para casos defensivos
+# documentados.
+exclude_lines = [ "pragma: no cover", "if TYPE_CHECKING:" ]

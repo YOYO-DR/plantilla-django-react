@@ -289,7 +289,7 @@ def test_loan_list_filters_by_org(maestro_a, maestro_b):
     """Solo ve loans de su org."""
     WorkerProfileFactory(user=maestro_a)
     WorkerProfileFactory(user=maestro_b)
-    from apps.payments.services import create_loan as cl  # noqa: PLC0415
+    from apps.payments.services import create_loan as cl
 
     loan_a = cl(
         worker=maestro_a.worker_profile,
@@ -315,7 +315,8 @@ def test_loan_list_filters_by_org(maestro_a, maestro_b):
 
 @pytest.mark.django_db
 def test_loan_cross_org_url_404(maestro_a, maestro_b):
-    from apps.payments.services import create_loan as cl  # noqa: PLC0415
+    from apps.payments.services import create_loan as cl
+
     WorkerProfileFactory(user=maestro_b)
     loan_b = cl(
         worker=maestro_b.worker_profile,
@@ -353,7 +354,7 @@ def test_loan_post_cross_org_body_404(maestro_a, maestro_b):
 
 @pytest.mark.django_db
 def test_payment_list_filters_by_org(maestro_a, maestro_b):
-    from apps.payments.services import register_payment  # noqa: PLC0415
+    from apps.payments.services import register_payment
 
     profile_a = WorkerProfileFactory(user=maestro_a)
     profile_b = WorkerProfileFactory(user=maestro_b)
@@ -413,7 +414,7 @@ def test_payment_list_filters_by_org(maestro_a, maestro_b):
 
 @pytest.mark.django_db
 def test_payment_cross_org_url_404(maestro_a, maestro_b):
-    from apps.payments.services import register_payment  # noqa: PLC0415
+    from apps.payments.services import register_payment
 
     profile_b = WorkerProfileFactory(user=maestro_b)
     WorkerRateFactory(
@@ -558,7 +559,7 @@ def test_register_payment_existing_loan_in_pagado_returns_409(maestro_a):
     (mapeo de ``LoanOverpaymentError`` por conflicto de estado).
     """
     WorkerProfileFactory(user=maestro_a)
-    from apps.payments.models import LoanStatus as LS  # noqa: PLC0415
+    from apps.payments.models import LoanStatus as LS
 
     pagado, _ = LS.objects.get_or_create(name="Pagado")
     loan = LoanFactory(worker=maestro_a.worker_profile)
@@ -603,7 +604,7 @@ def test_void_payment_returns_409_on_double_void(maestro_a):
         date=date(2026, 3, 1),
         created_by=maestro_a,
     )
-    from apps.payments.services import register_payment  # noqa: PLC0415
+    from apps.payments.services import register_payment
 
     payment = register_payment(
         worker=worker,

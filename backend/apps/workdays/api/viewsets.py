@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin
 from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.mixins import UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from apps.catalogs.models import WorkdayType
+from apps.users.models import WorkerProfile
 from apps.users.permissions import IsMaestroOrAdminPlataforma
 from apps.users.permissions import IsOrganizationMember
 from apps.workdays.models import Workday
@@ -100,9 +104,6 @@ class WorkdayViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from apps.catalogs.models import WorkdayType  # noqa: PLC0415
-        from apps.users.models import WorkerProfile  # noqa: PLC0415
-
         try:
             worker = WorkerProfile.objects.get(id=worker_id)
         except WorkerProfile.DoesNotExist as exc:
@@ -153,8 +154,6 @@ class WorkdayViewSet(
         data = request.data
         workday_type = None
         if "workday_type" in data:
-            from apps.catalogs.models import WorkdayType  # noqa: PLC0415
-
             workday_type = WorkdayType.objects.get(id=data["workday_type"])
 
         d = data.get("date")
@@ -172,6 +171,212 @@ class WorkdayViewSet(
         wd = self.get_object()
         delete_workday(workday=wd)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["post"], url_path="bulk-mark")
+    def bulk_mark(self, request):
+        """``marcarDiaCompletoParaTodos`` atómico.
+
+        Body: ``{"date": "YYYY-MM-DD", "workday_type_id": int,
+        "worker_ids": [int, ...]}``. Una sola transacción; si algún
+        trabajador falla, no se crea ninguno. Aislamiento: los workers
+        deben pertenecer a la org del caller.
+        """
+        from apps.workdays.services import create_workday  # noqa: PLC0415
+
+        try:
+            target_date = date.fromisoformat(request.data["date"])
+            wd_type_id = int(request.data["workday_type_id"])
+            worker_ids = [int(x) for x in request.data["worker_ids"]]
+        except (KeyError, TypeError, ValueError) as exc:
+            return Response(
+                {"detail": f"Payload inválido: {exc}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            try:
+                wd_type = WorkdayType.objects.get(id=wd_type_id)
+            except WorkdayType.DoesNotExist as exc:
+                return Response(
+                    {"detail": str(exc) or "Tipo de jornada no encontrado."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            workers = list(WorkerProfile.objects.filter(id__in=worker_ids))
+            found_ids = {w.id for w in workers}
+            missing = [wid for wid in worker_ids if wid not in found_ids]
+            if missing:
+                return Response(
+                    {"detail": f"Trabajadores no encontrados: {missing}"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            denied = _ensure_workers_in_callers_org(request.user, workers)
+            if denied is not None:
+                return denied
+
+            created_ids: list[int] = []
+            for w in workers:
+                wd = create_workday(
+                    worker=w,
+                    workday_type=wd_type,
+                    date=target_date,
+                    created_by=request.user,
+                )
+                created_ids.append(wd.id)
+
+        return Response(
+            {"created_ids": created_ids, "count": len(created_ids)},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="bulk-copy")
+    def bulk_copy(self, request):
+        """``repetirSemanaAnterior`` atómico.
+
+        Body: ``{"from_start": "YYYY-MM-DD", "from_end": "YYYY-MM-DD",
+        "to_start": "YYYY-MM-DD"}``. Copia cada jornada del rango origen
+        a la posición relativa del rango destino, atómicamente.
+        """
+        from apps.workdays.services import create_workday  # noqa: PLC0415
+
+        try:
+            from_start = date.fromisoformat(request.data["from_start"])
+            from_end = date.fromisoformat(request.data["from_end"])
+            to_start = date.fromisoformat(request.data["to_start"])
+        except (KeyError, TypeError, ValueError) as exc:
+            return Response(
+                {"detail": f"Payload inválido: {exc}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if from_end < from_start:
+            return Response(
+                {"detail": "from_end debe ser >= from_start."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            workdays = list(
+                Workday.objects.filter(
+                    date__gte=from_start,
+                    date__lte=from_end,
+                ),
+            )
+            denied = _ensure_workers_in_callers_org(
+                request.user,
+                [wd.worker for wd in workdays],
+            )
+            if denied is not None:
+                return denied
+
+            delta = (to_start - from_start).days
+            created_ids: list[int] = []
+            for wd in workdays:
+                target_date = wd.date + timedelta(days=delta)
+                # Si ya existe jornada en target, NO la creamos (no falla el lote).
+                if Workday.objects.filter(
+                    worker=wd.worker,
+                    date=target_date,
+                ).exists():
+                    continue
+                new_wd = create_workday(
+                    worker=wd.worker,
+                    workday_type=wd.workday_type,
+                    date=target_date,
+                    created_by=request.user,
+                )
+                created_ids.append(new_wd.id)
+
+        return Response(
+            {"created_ids": created_ids, "count": len(created_ids)},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="bulk-clear")
+    def bulk_clear(self, request):
+        """``limpiarSemana`` atómico.
+
+        Body: ``{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}``. Borra las
+        jornadas del rango que NO tengan pagos aplicados. Las que ya
+        tengan pagos se saltan y se reportan; nunca se fuerzan.
+        """
+
+        try:
+            start = date.fromisoformat(request.data["start"])
+            end = date.fromisoformat(request.data["end"])
+        except (KeyError, TypeError, ValueError) as exc:
+            return Response(
+                {"detail": f"Payload inválido: {exc}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if end < start:
+            return Response(
+                {"detail": "end debe ser >= start."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            workdays = list(
+                Workday.objects.filter(
+                    date__gte=start,
+                    date__lte=end,
+                ),
+            )
+            denied = _ensure_workers_in_callers_org(
+                request.user,
+                [wd.worker for wd in workdays],
+            )
+            if denied is not None:
+                return denied
+
+            deleted_ids: list[int] = []
+            skipped_paid_ids: list[int] = []
+            for wd in workdays:
+                if _has_payments(wd):
+                    skipped_paid_ids.append(wd.id)
+                    continue
+                deleted_ids.append(wd.id)
+                wd.delete()
+
+        return Response(
+            {
+                "deleted_ids": deleted_ids,
+                "skipped_paid_ids": skipped_paid_ids,
+                "deleted_count": len(deleted_ids),
+                "skipped_count": len(skipped_paid_ids),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+def _has_payments(workday: Workday) -> bool:
+    """¿La jornada tiene ``PaymentWorkdayDetail`` de un pago NO anulado?"""
+    from apps.payments.models import PaymentWorkdayDetail  # noqa: PLC0415
+
+    return PaymentWorkdayDetail.objects.filter(
+        workday=workday,
+        payment__voided_at__isnull=True,
+    ).exists()
+
+
+def _ensure_workers_in_callers_org(user, workers):
+    """404 si algún worker no es del caller (no leak).
+
+    Devuelve un ``Response`` 404 listo para retornar, o ``None`` si OK.
+    """
+    if getattr(user, "is_admin_plataforma", False):
+        return None
+    user_org = getattr(user, "organization_id", None)
+    for w in workers:
+        if w.user.organization_id != user_org:
+            from rest_framework import status as http_status  # noqa: PLC0415
+            from rest_framework.response import Response  # noqa: PLC0415
+
+            return Response(
+                {"detail": "El trabajador no pertenece a tu organización."},
+                status=http_status.HTTP_404_NOT_FOUND,
+            )
+    return None
 
 
 class WorkerRateViewSet(
@@ -216,8 +421,6 @@ class WorkerRateViewSet(
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        from apps.users.models import WorkerProfile  # noqa: PLC0415
 
         try:
             worker = WorkerProfile.objects.get(id=worker_id)
