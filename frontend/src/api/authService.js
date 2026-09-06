@@ -1,58 +1,81 @@
-import { api, setConfig, setAccessToken, clearAccessToken } from './apiClient'
-import { useAuthStore } from '@/store/authStore'
-import API_ENDPOINTS from './apiEndpoints'
+import { useAuthStore } from '@/store/authStore';
 
-/**
- * Inicializa el apiClient con la config del proyecto.
- * La baseURL se toma por defecto de VITE_API_URL en apiClient.js.
- * Llamar UNA vez en el entry point (main.jsx) antes de cualquier request.
- */
-export function initApiClient() {
-  setConfig({
-    refreshEndpoint: API_ENDPOINTS.auth.refresh,
-    loginEndpoint: API_ENDPOINTS.auth.login,
-    onUnauthorized: () => {
-      useAuthStore.getState().logout()
-    },
-    onTokenChange: (access) => {
-      if (access) useAuthStore.getState().setAccess(access)
-    },
-  })
+const BASE = import.meta.env.VITE_API_URL || '';
 
-  const persisted = useAuthStore.getState().access
-  if (persisted) setAccessToken(persisted)
-}
-
-/**
- * Login: POST /api/auth/token
- * Devuelve { access, user } y guarda en el store.
- * El refresh token se setea automáticamente como cookie HttpOnly.
- */
-export async function login(email, password) {
-  const data = await api.post(API_ENDPOINTS.auth.login, { email, password })
-  useAuthStore.getState().login(data.user, data.access)
-  setAccessToken(data.access)
-  return data
-}
-
-/**
- * Logout: borra cookie en el server + limpia store local.
- */
-export async function logout() {
-  try {
-    await api.post(API_ENDPOINTS.auth.logout, {})
-  } catch {
-  } finally {
-    useAuthStore.getState().logout()
-    clearAccessToken()
+async function tryRefresh() {
+  const resp = await fetch(`${BASE}/api/auth/token/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!resp.ok) {
+    useAuthStore.getState().logout();
+    return null;
   }
+  const data = await resp.json();
+  useAuthStore.getState().setAccessToken(data.access);
+  return data.access;
 }
 
-/**
- * Get current user: GET /api/users/me/
- */
-export async function getMe() {
-  const data = await api.get(API_ENDPOINTS.user.me)
-  useAuthStore.getState().setUser(data)
-  return data
+async function authRequest(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const access = useAuthStore.getState().accessToken;
+  if (access) headers['Authorization'] = `Bearer ${access}`;
+
+  let resp = await fetch(`${BASE}/api${path}`, {
+    ...options,
+    credentials: 'include',
+    headers,
+  });
+
+  if (resp.status === 401 && path !== '/auth/token' && path !== '/auth/token/refresh') {
+    const newAccess = await tryRefresh();
+    if (newAccess) {
+      resp = await fetch(`${BASE}/api${path}`, {
+        ...options,
+        credentials: 'include',
+        headers: { ...headers, Authorization: `Bearer ${newAccess}` },
+      });
+    } else {
+      useAuthStore.getState().logout();
+    }
+  }
+  return resp;
 }
+
+export const authService = {
+  login: async (email, password) => {
+    const resp = await fetch(`${BASE}/api/auth/token`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || 'Login fallido');
+    }
+    const data = await resp.json();
+    useAuthStore.getState().loginSuccess({ access: data.access, user: data.user });
+    return data.user;
+  },
+  logout: async () => {
+    try {
+      const access = useAuthStore.getState().accessToken;
+      await fetch(`${BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(access ? { Authorization: `Bearer ${access}` } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+    } catch (_) {
+      // ignore
+    }
+    useAuthStore.getState().logout();
+  },
+  me: () => authRequest('/auth/me').then((r) => r.json()),
+};

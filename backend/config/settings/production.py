@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from .base import *  # noqa: F403
 from .base import DATABASES
 from .base import INSTALLED_APPS
@@ -82,14 +81,14 @@ MEDIA_URL = "/api/media/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL",
-    default="plantilla django react <noreply@plantilla.yoyodr.dev>",
+    default="JornalPro <noreply@plantilla.yoyodr.dev>",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-subject-prefix
 EMAIL_SUBJECT_PREFIX = env(
     "DJANGO_EMAIL_SUBJECT_PREFIX",
-    default="[plantilla django react] ",
+    default="[JornalPro] ",
 )
 ACCOUNT_EMAIL_SUBJECT_PREFIX = EMAIL_SUBJECT_PREFIX
 

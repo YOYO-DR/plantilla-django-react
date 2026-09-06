@@ -1,0 +1,155 @@
+/* Overrides de FullCalendar para alinear con el sistema de tokens de JornalPro. */
+
+.fc {
+  font-family: inherit;
+  --fc-border-color: hsl(var(--border));
+  --fc-today-bg-color: hsl(var(--primary) / 0.08);
+  --fc-neutral-bg-color: hsl(var(--muted) / 0.5);
+  --fc-list-event-hover-bg-color: hsl(var(--accent));
+  --fc-bg-event-opacity: 1;
+}
+
+/* Encabezado de días */
+.fc-col-header-cell {
+  background: hsl(var(--muted) / 0.4);
+  border-color: hsl(var(--border));
+}
+.fc-col-header-cell-cushion {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+  padding: 0.5rem 0;
+}
+
+/* Días */
+.fc-daygrid-day-frame {
+  min-height: 96px;
+  border-color: hsl(var(--border));
+}
+.fc-daygrid-day-number {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  padding: 0.35rem 0.5rem;
+}
+
+.fc-daygrid-day.fc-day-today .fc-daygrid-day-frame {
+  background: hsl(var(--primary) / 0.06);
+}
+.fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+
+.fc-day-other .fc-daygrid-day-frame {
+  background: hsl(var(--muted) / 0.3);
+  opacity: 0.6;
+}
+
+.fc-day-other .fc-daygrid-day-number {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Eventos base */
+.fc-daygrid-event {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  margin: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.1;
+  transition: filter 0.15s ease;
+}
+.fc-daygrid-event:hover {
+  filter: brightness(0.96);
+}
+
+/* Estados semánticos de las jornadas */
+.fc-event-jornada {
+  /* base */
+  position: relative;
+  white-space: normal;
+  overflow: hidden;
+}
+.fc-event-jornada-completo {
+  background: hsl(var(--success) / 0.18) !important;
+  color: hsl(var(--success)) !important;
+}
+.fc-event-jornada-medio {
+  background: hsl(var(--info) / 0.18) !important;
+  color: hsl(var(--info)) !important;
+}
+.fc-event-jornada-no-trabajo {
+  background: hsl(var(--muted) / 0.6) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+.fc-event-jornada-override {
+  background: hsl(var(--warning) / 0.22) !important;
+  color: hsl(var(--warning-foreground)) !important;
+  outline: 2px solid hsl(var(--warning) / 0.7);
+  outline-offset: -2px;
+}
+.fc-event-jornada-liquidada {
+  background: hsl(var(--muted) / 0.7) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  cursor: not-allowed;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0,
+    transparent 4px,
+    hsl(var(--muted-foreground) / 0.18) 4px,
+    hsl(var(--muted-foreground) / 0.18) 8px
+  );
+}
+.fc-event-jornada-vacia {
+  background: hsl(var(--muted) / 0.2) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  border: 1px dashed hsl(var(--border));
+}
+.fc-event-jornada-vacia:hover {
+  background: hsl(var(--primary) / 0.08) !important;
+  color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+/* Modo cuadrilla */
+.fc-event-cuadrilla {
+  background: hsl(var(--primary) / 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+/* Botones ocultos por defecto */
+.fc-button {
+  display: none !important;
+}
+
+/* Modo oscuro */
+.dark .fc-col-header-cell {
+  background: hsl(var(--muted) / 0.3);
+}
+.dark .fc-daygrid-day.fc-day-today .fc-daygrid-day-frame {
+  background: hsl(var(--primary) / 0.12);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .fc-toolbar {
+    margin-bottom: 0.5rem;
+  }
+  .fc-daygrid-day-frame {
+    min-height: 64px;
+  }
+  .fc-daygrid-day-number {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.3rem;
+  }
+  .fc-daygrid-event {
+    margin: 1px 2px;
+    padding: 0.15rem 0.35rem;
+    font-size: 0.65rem;
+    border-radius: 0.4rem;
+  }
+}

@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+ * JornalPro — Sistema de diseño
+ * Paleta: ámbar de casco de obra (#F59E0B) sobre piedra (#1C1917 / #FAFAF9).
+ * Tokens expuestos en HSL para ser consumidos por tailwind.config.ts.
+ * ============================================================================ */
+
+@layer base {
+  :root {
+    /* Superficies */
+    --background: 60 9% 98%;            /* #FAFAF9 — stone-50 */
+    --foreground: 20 14% 4%;            /* #1C1917 — stone-900 */
+
+    --card: 0 0% 100%;                  /* blanco puro */
+    --card-foreground: 20 14% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14% 4%;
+
+    /* Marca */
+    --primary: 38 92% 50%;              /* #F59E0B — ámbar de casco */
+    --primary-foreground: 20 14% 4%;    /* stone-900 sobre ámbar para mejor contraste */
+
+    --secondary: 60 9% 94%;             /* stone-100 */
+    --secondary-foreground: 20 14% 4%;
+
+    --muted: 60 9% 94%;                 /* stone-100 */
+    --muted-foreground: 25 5% 45%;      /* stone-500 */
+
+    --accent: 38 92% 50%;               /* ámbar también como acento */
+    --accent-foreground: 20 14% 4%;
+
+    /* Semánticos */
+    --destructive: 0 72% 51%;           /* #DC2626 — rojo deuda */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 36%;             /* #16A34A — verde día completo / pagado */
+    --success-foreground: 0 0% 100%;
+
+    --info: 199 89% 48%;                /* #0EA5E9 — sky / medio día */
+    --info-foreground: 0 0% 100%;
+
+    --warning: 31 95% 44%;              /* #D97706 — amber-700 / tarifa especial */
+    --warning-foreground: 0 0% 100%;
+
+    /* Neutros adicionales */
+    --surface: 20 14% 4%;               /* #1C1917 — header / sidebar */
+    --surface-foreground: 60 9% 98%;
+    --muted-strong: 24 6% 63%;          /* stone-400 — no trabajó */
+
+    /* Bordes e inputs */
+    --border: 20 6% 90%;                /* #E7E5E4 */
+    --input: 20 6% 90%;
+    --ring: 38 92% 50%;
+
+    --radius: 0.625rem;                 /* 10px — esquinas sobrias */
+
+    --sidebar-background: 20 14% 4%;
+    --sidebar-foreground: 60 9% 98%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 12%;
+    --sidebar-accent-foreground: 60 9% 98%;
+    --sidebar-border: 20 10% 12%;
+    --sidebar-ring: 38 92% 50%;
+  }
+
+  .dark {
+    --background: 20 14% 4%;            /* #1C1917 */
+    --foreground: 60 9% 98%;
+
+    --card: 20 10% 9%;                  /* stone-850 aprox */
+    --card-foreground: 60 9% 98%;
+
+    --popover: 20 10% 9%;
+    --popover-foreground: 60 9% 98%;
+
+    --primary: 38 92% 50%;
+    --primary-foreground: 20 14% 4%;
+
+    --secondary: 20 10% 12%;
+    --secondary-foreground: 60 9% 98%;
+
+    --muted: 20 10% 12%;
+    --muted-foreground: 24 6% 63%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 20 14% 4%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 60 9% 98%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 20 14% 4%;
+
+    --info: 199 89% 58%;
+    --info-foreground: 20 14% 4%;
+
+    --warning: 31 95% 50%;
+    --warning-foreground: 20 14% 4%;
+
+    --surface: 20 14% 4%;
+    --surface-foreground: 60 9% 98%;
+    --muted-strong: 24 6% 45%;
+
+    --border: 20 10% 18%;
+    --input: 20 10% 18%;
+    --ring: 38 92% 50%;
+
+    --sidebar-background: 20 14% 4%;
+    --sidebar-foreground: 60 9% 98%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 12%;
+    --sidebar-accent-foreground: 60 9% 98%;
+    --sidebar-border: 20 10% 12%;
+    --sidebar-ring: 38 92% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Cifras en formato tabular en todo el dinero del producto */
+  .num,
+  [data-num] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Display headings */
+  .display {
+    font-family: "Inter Tight", "Inter", system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /* Botones táctiles grandes por defecto */
+  button, [role="button"] {
+    min-height: 2.5rem;
+  }
+
+  /* Scrollbar discreto */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: hsl(var(--border));
+      border-radius: 6px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: hsl(var(--muted-foreground) / 0.5);
+    }
+  }
+  
+  /* =============================================================================
+   * Impresión — comprobantes y reportes.
+   * ============================================================================= */
+  @media print {
+    body {
+      background: white !important;
+      color: black !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    /* Oculta toda la navegación del producto. */
+    header.bg-sidebar,
+    aside.bg-sidebar,
+    nav.fixed {
+      display: none !important;
+    }
+    .print\:hidden {
+      display: none !important;
+    }
+    .print\:shadow-none {
+      box-shadow: none !important;
+    }
+    .print\:border-0 {
+      border: 0 !important;
+    }
+    .print\:p-8 {
+      padding: 2rem !important;
+    }
+    .print\:space-y-0 > * + * {
+      margin-top: 0 !important;
+    }
+    /* Sin márgenes raros */
+    .max-w-7xl,
+    .max-w-2xl,
+    .max-w-3xl,
+    .max-w-md {
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
+  }

@@ -51,7 +51,6 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 DATABASES = {"default": env.db("DATABASE_URL")}
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # URLS
 # ------------------------------------------------------------------------------
@@ -80,13 +79,19 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
 ]
 
 LOCAL_APPS = [
+    "apps.organizations",
+    "apps.catalogs",
     "apps.users",
     "apps.custom_auth",
+    "apps.workdays",
+    "apps.payments",
+    "apps.admin_platforma",
     "apps.utils",
     # Your stuff: custom apps go here
 ]
@@ -379,8 +384,8 @@ CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=False)
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "plantilla django react API",
-    "DESCRIPTION": "Documentation of API endpoints of plantilla django react",
+    "TITLE": "JornalPro API",
+    "DESCRIPTION": "Documentation of API endpoints of JornalPro",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",
@@ -393,8 +398,8 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=env.int("JWT_REFRESH_TOKEN_DAYS", default=7),
     ),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": env("DJANGO_SECRET_KEY"),

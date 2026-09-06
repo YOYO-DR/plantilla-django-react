@@ -34,7 +34,8 @@ class TestUserViewSet:
 
         response = view.me(request)  # type: ignore[misc,call-arg,arg-type]
 
-        assert response.data == {
-            "url": f"http://testserver/api/users/{user.pk}/",
-            "name": user.name,
-        }
+        # UserSerializer expone id, email, name, phone, organization_id,
+        # is_staff, is_superuser, is_admin_plataforma, groups, date_joined.
+        assert response.data["id"] == user.pk
+        assert response.data["email"] == user.email
+        assert response.data["name"] == user.name

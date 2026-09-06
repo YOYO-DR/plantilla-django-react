@@ -1,7 +1,7 @@
 services:
   docs:
-    image: plantilla_django_react_local_docs
-    container_name: plantilla_django_react_local_docs
+    image: jornal_pro_trabajadores_local_docs
+    container_name: jornal_pro_trabajadores_local_docs
     build:
       context: .
       dockerfile: ./compose/local/docs/Dockerfile

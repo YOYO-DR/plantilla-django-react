@@ -4,11 +4,11 @@ volumes:
   production_django_logs: {}
 
 services:
-  django_plantilla: &django
+  django_jornal: &django
     build:
       context: ./backend
       dockerfile: ./compose/production/django/Dockerfile
-    image: plantilla_django_react_production_django
+    image: jornal_pro_trabajadores_production_django
     volumes:
       - production_django_media:/app/apps/media
       - production_django_logs:/app/logs
@@ -28,11 +28,11 @@ services:
       - dokploy-network
       - default
 
-  pgbouncer_plantilla:
+  pgbouncer_jornal:
     build:
       context: ./backend
       dockerfile: ./compose/production/pgbouncer/Dockerfile
-    image: plantilla_django_react_production_pgbouncer
+    image: jornal_pro_trabajadores_production_pgbouncer
     restart: unless-stopped
     env_file:
       - ./.env
@@ -48,19 +48,19 @@ services:
           cpus: ${PGBOUNCER_CPU:-1}
           memory: ${PGBOUNCER_RAM:-1g}
 
-  redis_plantilla:
+  redis_jornal:
     image: docker.io/redis:7.2
     networks:
       - dokploy-network
       - default
 
-  traefik_plantilla:
+  traefik_jornal:
     build:
       context: ./backend
       dockerfile: ./compose/production/traefik/Dockerfile
-    image: plantilla_django_react_production_traefik
+    image: jornal_pro_trabajadores_production_traefik
     depends_on:
-      - django_plantilla
+      - django_jornal
     volumes:
       - production_traefik:/etc/traefik/acme
     restart: unless-stopped
@@ -78,17 +78,17 @@ services:
           cpus: ${TRAEFIK_CPU:-1}
           memory: ${TRAEFIK_RAM:-1g}
 
-  celeryworker_plantilla:
+  celeryworker_jornal:
     <<: *django
-    image: plantilla_django_react_production_celeryworker
+    image: jornal_pro_trabajadores_production_celeryworker
     command: /start-celeryworker
     ports: []
     restart: unless-stopped
     env_file:
       - ./.env
     depends_on:
-      - pgbouncer_plantilla
-      - redis_plantilla
+      - pgbouncer_jornal
+      - redis_jornal
     deploy:
       replicas: ${CANT_WORKERS_CELERY:-2}
       resources:
@@ -102,9 +102,9 @@ services:
       - dokploy-network
       - default
 
-  celerybeat_plantilla:
+  celerybeat_jornal:
     <<: *django
-    image: plantilla_django_react_production_celerybeat
+    image: jornal_pro_trabajadores_production_celerybeat
     restart: unless-stopped
     volumes:
       - production_django_media:/app/apps/media
@@ -112,8 +112,8 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - pgbouncer_plantilla
-      - redis_plantilla
+      - pgbouncer_jornal
+      - redis_jornal
     deploy:
       resources:
         reservations:
@@ -126,25 +126,25 @@ services:
       - dokploy-network
       - default
 
-  flower_plantilla:
+  flower_jornal:
     <<: *django
-    image: plantilla_django_react_production_flower
+    image: jornal_pro_trabajadores_production_flower
     command: /start-flower
     env_file:
       - ./.env
     depends_on:
-      - celeryworker_plantilla
+      - celeryworker_jornal
     networks:
       - dokploy-network
       - default
 
-  nginx_plantilla:
+  nginx_jornal:
     build:
       context: ./backend
       dockerfile: ./compose/production/nginx/Dockerfile
-    image: plantilla_django_react_production_nginx
+    image: jornal_pro_trabajadores_production_nginx
     depends_on:
-      - django_plantilla
+      - django_jornal
     volumes:
       - production_django_media:/usr/share/nginx/media:ro
     restart: unless-stopped
@@ -160,16 +160,16 @@ services:
       - dokploy-network
       - default
 
-  frontend_plantilla:
+  frontend_jornal:
     build:
       context: ./frontend
       dockerfile: ./compose/production/Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL}
-    image: plantilla_django_react_production_frontend
+    image: jornal_pro_trabajadores_production_frontend
     restart: unless-stopped
     depends_on:
-      - django_plantilla
+      - django_jornal
     deploy:
       resources:
         reservations:
@@ -185,4 +185,3 @@ services:
 networks:
   dokploy-network:
     external: true
-

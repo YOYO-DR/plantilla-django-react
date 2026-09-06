@@ -14,7 +14,9 @@ def test_api_docs_accessible_by_admin(admin_client):
 def test_api_docs_not_accessible_by_anonymous_users(client):
     url = reverse("api-docs")
     response = client.get(url)
-    assert response.status_code == HTTPStatus.FORBIDDEN
+    # 401 cuando IsAuthenticated rechaza sin credenciales; 403 si Spectacular
+    # configurara explicit DRF permission. Aceptamos ambos como "no accesible".
+    assert response.status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
 
 
 def test_api_schema_generated_successfully(admin_client):

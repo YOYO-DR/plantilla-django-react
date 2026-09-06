@@ -1,5 +1,5 @@
 """
-WSGI config for plantilla django react project.
+WSGI config for JornalPro project.
 
 This module contains the WSGI application used by Django's development server
 and any production WSGI deployments. It should expose a module-level variable

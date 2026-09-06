@@ -1,21 +1,21 @@
 from django.contrib import admin
-from django.contrib.auth import admin as auth_admin
+from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
 from django.utils.translation import gettext_lazy as _
 
-from .forms import UserAdminChangeForm
-from .forms import UserAdminCreationForm
 from .models import User
+from .models import WorkerProfile
 
 
 @admin.register(User)
-class UserAdmin(auth_admin.UserAdmin):
-    form = UserAdminChangeForm
-    add_form = UserAdminCreationForm
+class UserAdmin(AuthUserAdmin):
+    ordering = ("email",)
+    list_display = ("email", "name", "organization", "is_staff", "is_superuser")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        (_("Personal info"), {"fields": ("name",)}),
+        (_("Información personal"), {"fields": ("name", "phone")}),
+        (_("Organización"), {"fields": ("organization",)}),
         (
-            _("Permissions"),
+            _("Permisos"),
             {
                 "fields": (
                     "is_active",
@@ -26,17 +26,18 @@ class UserAdmin(auth_admin.UserAdmin):
                 ),
             },
         ),
-        (_("Important dates"), {"fields": ("last_login", "date_joined")}),
+        (_("Fechas importantes"), {"fields": ("last_login", "date_joined")}),
     )
-    list_display = ["email", "name", "is_superuser"]
-    search_fields = ["name"]
-    ordering = ["id"]
     add_fieldsets = (
         (
             None,
-            {
-                "classes": ("wide",),
-                "fields": ("email", "password1", "password2"),
-            },
+            {"classes": ("wide",), "fields": ("email", "password1", "password2")},
         ),
     )
+    search_fields = ("email", "name")
+
+
+@admin.register(WorkerProfile)
+class WorkerProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "id_document", "hire_date", "is_active")
+    search_fields = ("user__email", "user__name", "id_document")

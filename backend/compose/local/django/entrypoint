@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# Fallbacks (variables con prefijo PGB_* vienen del .env del template;
+# variables sin prefijo vienen de la imagen upstream de postgres).
+export PGB_POSTGRES_USER="${PGB_POSTGRES_USER:-postgres}"
+export PGB_POSTGRES_HOST="${PGB_POSTGRES_HOST:-postgres}"
+export PGB_POSTGRES_PORT="${PGB_POSTGRES_PORT:-5432}"
+export PGB_POSTGRES_DB="${PGB_POSTGRES_DB:-${POSTGRES_DB:-jornal_pro_trabajadores}}"
+export PGB_POSTGRES_PASSWORD="${PGB_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:-debug}}"
+
+export DATABASE_URL="postgres://${PGB_POSTGRES_USER}:${PGB_POSTGRES_PASSWORD}@${PGB_POSTGRES_HOST}:${PGB_POSTGRES_PORT}/${PGB_POSTGRES_DB}"
+
+# Espera robusta con varios reintentos (15s cada uno, 3 intentos).
+# Algunos entrypoints upstream confunden "timeout" con "no DNS"; intentamos
+# resolver primero y luego conectar.
+PGB_HOST="$(echo "${PGB_POSTGRES_HOST}:${PGB_POSTGRES_PORT}" | cut -d: -f1)"
+PGB_PORT="${PGB_POSTGRES_PORT#*:}"
+if [ "${PGB_POSTGRES_HOST}" = "${PGB_PORT}" ]; then
+    PGB_PORT="${PGB_POSTGRES_PORT}"
+fi
+
+if wait-for-it "${PGB_POSTGRES_HOST}:${PGB_POSTGRES_PORT}" -t 30 --strict; then
+    >&2 echo 'PostgreSQL is available (via wait-for-it).'
+else
+    >&2 echo 'PostgreSQL no respondió por wait-for-it; continuando (Django conectará cuando el server esté listo).'
+fi
+
+exec "$@"

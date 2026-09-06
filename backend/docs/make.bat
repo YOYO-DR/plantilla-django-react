@@ -10,7 +10,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=_source
 set BUILDDIR=_build
-set APP=..\plantilla_django_react
+set APP=..\jornal_pro_trabajadores
 
 if "%1" == "" goto help
 

@@ -1,5 +1,5 @@
 """
-ASGI config for plantilla django react project.
+ASGI config for JornalPro project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

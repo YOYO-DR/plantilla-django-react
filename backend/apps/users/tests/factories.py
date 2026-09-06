@@ -4,15 +4,13 @@ from factory import Faker
 from factory import post_generation
 from factory.django import DjangoModelFactory
 
-from apps.users.models import User
 
-
-class UserFactory(DjangoModelFactory[User]):
+class UserFactory(DjangoModelFactory):
     email = Faker("email")
     name = Faker("name")
 
     @post_generation
-    def password(self: User, create: bool, extracted: str | None, **kwargs):  # noqa: FBT001
+    def password(self, create: bool, extracted: str | None, **kwargs):  # noqa: FBT001
         password = (
             extracted
             if extracted
@@ -30,6 +28,12 @@ class UserFactory(DjangoModelFactory[User]):
             self.save()
 
     class Meta:
-        model = User
+        # Lazy string notation: Factory Boy resolves the model class
+        # AFTER Django settings are configured, avoiding ImproperlyConfigured
+        # during pytest collection.
+        # NOTE: app_label is the LAST segment of the AppConfig.name, not the
+        # full Python path. With INSTALLED_APPS=["apps.users", ...] the
+        # registered label is "users", not "apps".
+        model = "users.User"
         django_get_or_create = ["email"]
         skip_postgeneration_save = True

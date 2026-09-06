@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------------------
 # DJANGO_READ_DOT_ENV_FILE=True
 DJANGO_SETTINGS_MODULE=config.settings.production
-# Generar secret key con el comando 
+# Generar secret key con el comando
 # python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
 DJANGO_SECRET_KEY=
 DJANGO_ADMIN_URL=BPWPq0SDOy6rSlfMaA5xu8gc0gf9dw36/

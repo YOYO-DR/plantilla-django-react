@@ -98,21 +98,21 @@ def rotate_logs_task(self):
                     rotated_path.name,
                 )
 
-            except (OSError, PermissionError, FileNotFoundError):
+            except OSError, PermissionError, FileNotFoundError:
                 logger.exception("Error rotando archivo %s", log_filename)
 
         cleanup_result = cleanup_old_logs(log_dir, days_to_keep=30)
 
         if os.name == "posix" and os.getenv("USE_DOCKER") != "yes":
             try:
-                subprocess.run(  # noqa: S603
+                subprocess.run(
                     ["/usr/bin/pkill", "-USR1", "-f", "manage.py"],
                     check=False,
                     capture_output=True,
                     text=True,
                     timeout=5,
                 )
-                subprocess.run(  # noqa: S603
+                subprocess.run(
                     ["/usr/bin/pkill", "-USR1", "-f", "celery"],
                     check=False,
                     capture_output=True,
