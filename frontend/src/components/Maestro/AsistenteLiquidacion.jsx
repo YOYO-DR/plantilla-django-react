@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Check,
@@ -47,6 +48,7 @@ import {
   AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 import { useData } from "@/context/DataContext";
+import { workersService } from "@/api/workersService";
 import {
   calcularDescuento,
   construirDetalleLiquidacion,
@@ -68,6 +70,17 @@ export function AsistenteLiquidacion({
   const esMovil = useMediaQuery("(max-width: 1023px)");
   const navigate = useNavigate();
   const { movimientos, crearLiquidacion } = useData();
+
+  // Fase D2: balance como fuente de verdad del backend.
+  // El endpoint ``GET /api/workers/{id}/balance/`` devuelve los montos
+  // oficiales. La UI los muestra para que el maestro vea cifras que
+  // NO fueron calculadas en el cliente.
+  const balanceQ = useQuery({
+    queryKey: ["balance", trabajador?.id],
+    queryFn: () => workersService.balance(trabajador.id),
+    enabled: open && !!trabajador?.id,
+    retry: false,
+  });
 
   const [paso, setPaso] = useState(1);
   const [modo, setModo] = useState("ninguno");
@@ -176,6 +189,46 @@ export function AsistenteLiquidacion({
       {/* Paso 1 — revisar días */}
       {paso === 1 && (<div className="space-y-3">
           <h3 className="display text-base font-semibold">Revisar días</h3>
+
+          {/* Panel de balance: fuente de verdad del backend.
+              ``GET /api/workers/{id}/balance/`` — los montos que muestra
+              no son calculados en cliente. */}
+          {balanceQ.isLoading ? (
+            <p className="rounded-md border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
+              Cargando balance del backend…
+            </p>
+          ) : balanceQ.data ? (
+            <div className="rounded-md border border-info/40 bg-info/5 p-3 text-sm">
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Balance oficial del backend
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Jornadas</p>
+                  <p className="num font-semibold">
+                    {formatCOP(balanceQ.data.adeudado_workdays)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Préstamos</p>
+                  <p className="num font-semibold">
+                    {formatCOP(balanceQ.data.saldo_prestamos)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Neto</p>
+                  <p className="num font-semibold text-primary">
+                    {formatCOP(balanceQ.data.neto_a_pagar)}
+                  </p>
+                </div>
+              </div>
+              {typeof balanceQ.data.pendientes_count === "number" ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {balanceQ.data.pendientes_count} jornadas pendientes
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {detalle.length === 0 ? (<p className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
               No hay jornadas pendientes en este período.
             </p>) : (<Table>

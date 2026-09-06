@@ -186,7 +186,6 @@ export function DataProvider({ children }) {
       activarTenant: noopAsync,
       actualizarUsuario: noopAsync,
       cambiarRolUsuario: noopAsync,
-      liquidarMasiva: noopAsync, // D1 explícitamente lo quita del UI; D2 no lo construye.
       inferirUsuarioDesdeNombre: () => null,
       generarPassword: () => null, // el backend genera la contraseña.
       // para D2

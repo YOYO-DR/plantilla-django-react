@@ -241,7 +241,8 @@ def test_workday_bulk_mark_creates_all_atomic(maestro_a):
 
     assert (
         Workday.objects.filter(
-            worker__in=[profile_a, profile_b], date=date(2026, 3, 15)
+            worker__in=[profile_a, profile_b],
+            date=date(2026, 3, 15),
         ).count()
         == 2
     )

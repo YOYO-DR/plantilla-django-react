@@ -39,7 +39,7 @@ import { HistorialPagos } from "./HistorialPagos";
 import { Link } from "react-router-dom";
 
 export default function MaestroPagos() {
-  const { trabajadores, jornadas, liquidaciones, movimientos, liquidarMasiva } = useData();
+  const { trabajadores, jornadas, liquidaciones, movimientos } = useData();
   const { usuario } = useAuth();
 
   const [tab, setTab] = useState("por-liquidar");
@@ -116,34 +116,10 @@ export default function MaestroPagos() {
     else setSeleccion([]);
   };
 
-  const liquidarSeleccionados = () => {
-    if (seleccion.length === 0) {
-      toast.info("Selecciona al menos un trabajador.");
-      return;
-    }
-    const result = liquidarMasiva(
-      seleccion.map((tId) => {
-        const c = candidatos.find((x) => x.t.id === tId);
-        return {
-          trabajadorId: tId,
-          periodoInicio: aplicado.inicio,
-          periodoFin: aplicado.fin,
-          jornadaIds: c.jornadas.map((j) => j.id),
-          modoDescuento: "total",
-          observaciones: undefined,
-          fechaPago: aplicado.fin,
-        };
-      }),
-    );
-    if (result.creadas === 0) {
-      toast.error("No se pudo liquidar ninguno. Revisa los datos.");
-      return;
-    }
-    toast.success(`${result.creadas} liquidaciones creadas.`, {
-      description: `Total pagado: ${formatCOP(result.totalPagado)} · Descontado de deudas: ${formatCOP(result.totalDescontado)}.`,
-    });
-    setSeleccion([]);
-  };
+  // liquidarSeleccionados eliminado: la liquidación masiva no existe
+  // (decisión del usuario en Fase C-bis). El botón "Liquidar seleccionados"
+  // se quitó de la barra inferior. La pantalla conserva el total calculado
+  // como informativo pero sin acción.
 
   return (
     <div className="space-y-6">
@@ -287,11 +263,11 @@ export default function MaestroPagos() {
                     <strong className="num text-primary">{formatCOP(totalAPagar)}</strong>
                   </p>
                   <Button
-                    onClick={liquidarSeleccionados}
+                    onClick={() => toast.info("Liquida cada uno desde su perfil.")}
                     disabled={seleccion.length === 0}
                     className="min-h-tap"
                   >
-                    Liquidar seleccionados
+                    Ver trabajadores
                   </Button>
                 </div>
               </div>
