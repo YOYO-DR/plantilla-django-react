@@ -19,8 +19,7 @@ services:
       - pgbouncer
       - redis
     env_file:
-      - ./backend/.envs/.production/.django
-      - ./backend/.envs/.production/.postgres
+      - ./.env
     command: /start
 
   postgres:
@@ -32,7 +31,7 @@ services:
       - production_postgres_data:/var/lib/postgresql/18/docker
       - production_postgres_data_backups:/backups
     env_file:
-      - ./backend/.envs/.production/.postgres
+      - ./.env
 
   pgbouncer:
     build:
@@ -43,7 +42,7 @@ services:
     depends_on:
       - postgres
     env_file:
-      - ./backend/.envs/.production/.postgres
+      - ./.env
 
   traefik:
     build:

@@ -8,3 +8,8 @@ sphinx-*.png
 # Build artifacts de Sphinx (se regeneran con `just docs-build`)
 docs/_build/
 docs/_sources/
+
+# Variables de entorno reales. El .env de la raíz es la única fuente:
+# se copia de .env.example (local) o .env.production.example (despliegue).
+.env
+.env.production

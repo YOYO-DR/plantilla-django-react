@@ -92,7 +92,7 @@ docker compose -f docker-compose.production.yml exec django python manage.py col
 
 ### Variables de entorno (django)
 
-Definidas en `backend/.envs/.local/.django`:
+Definidas en el `.env` de la raíz (plantilla en `.env.example`):
 
 ```bash
 DJANGO_SECRET_KEY=...           # requerido
@@ -107,7 +107,7 @@ JWT_COOKIE_SECURE=True          # True en prod
 
 ### Variables de entorno (postgres)
 
-Definidas en `backend/.envs/.local/.postgres`:
+Definidas también en el `.env` de la raíz, que es la única fuente:
 
 ```bash
 POSTGRES_HOST=postgres

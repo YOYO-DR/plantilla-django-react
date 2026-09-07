@@ -166,9 +166,17 @@ Ver `justfile` para más recetas (`docs-build`, `docs-serve`, `ci-local`).
 
 ## Variables de entorno
 
-Todas las variables están documentadas en [`.env.example`](.env.example)
-en la raíz. Para producción ver `backend/.envs/.production/` (los valores
-reales **no se commitean**: están en `.gitignore`).
+El **`.env` de la raíz es la única fuente de variables** del proyecto.
+Todos los compose (`local`, `docs`, `prod`, `production`, `dokploy`) leen
+ese archivo y solo ese: no hay variables repartidas por subcarpetas.
+
+```bash
+cp .env.example .env              # desarrollo local
+cp .env.production.example .env   # despliegue
+```
+
+Las dos plantillas documentan todas las variables con sus valores por
+defecto. El `.env` real **nunca se commitea**: está en `.gitignore`.
 
 ## Despliegue en producción
 

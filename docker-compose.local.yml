@@ -17,8 +17,7 @@ services:
       - /app/.venv
       - ./backend:/app:z
     env_file:
-      - ./backend/.envs/.local/.django
-      - ./backend/.envs/.local/.postgres
+      - ./.env
     ports:
       - '8000:8000'
     command: /start
@@ -33,7 +32,7 @@ services:
       - jornal_pro_trabajadores_local_postgres_data:/var/lib/postgresql/18/docker
       - jornal_pro_trabajadores_local_postgres_data_backups:/backups
     env_file:
-      - ./backend/.envs/.local/.postgres
+      - ./.env
 
   pgbouncer:
     build:
@@ -45,7 +44,7 @@ services:
     depends_on:
       - postgres
     env_file:
-      - ./backend/.envs/.local/.postgres
+      - ./.env
     ports:
       - '6432:6432'
 
