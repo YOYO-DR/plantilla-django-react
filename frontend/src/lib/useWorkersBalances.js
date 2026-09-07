@@ -17,7 +17,10 @@ export function useWorkersBalances(workerIds) {
     queries: ids.map((id) => ({
       queryKey: ["balance", id],
       queryFn: () => workersService.balance(id),
-      enabled: Number.isFinite(id),
+      // El id llega como string (workersService lo normaliza para que
+      // `t.id === useParams().id` funcione), y Number.isFinite("1") es
+      // false: comprobado sobre el valor convertido, no sobre el crudo.
+      enabled: Number.isFinite(Number(id)),
       retry: false,
     })),
   });

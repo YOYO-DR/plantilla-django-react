@@ -131,4 +131,11 @@ export const workersService = {
   },
   createLoan: (data) =>
     request("/loans/", { method: "POST", body: JSON.stringify(data) }),
+
+  // Tarifas de un trabajador (WorkerRate). F8: la lista de trabajadores
+  // muestra la tarifa vigente y la deuda; este endpoint las trae.
+  listRates: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/worker-rates/${qs ? `?${qs}` : ""}`);
+  },
 };

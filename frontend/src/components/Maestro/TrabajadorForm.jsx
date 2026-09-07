@@ -64,6 +64,7 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
     defaultValues: isCrear
       ? {
           nombre: "",
+          email: "",
           documento: "",
           telefono: "",
           oficio: "Ayudante",
@@ -76,6 +77,7 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
         }
       : {
           nombre: trabajador?.nombre ?? "",
+          email: trabajador?.email ?? "",
           documento: trabajador?.documento ?? "",
           telefono: trabajador?.telefono ?? "",
           oficio: trabajador?.oficio ?? "Ayudante",
@@ -150,6 +152,7 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
 
         const r = crearTrabajador({
           nombre: data.nombre.trim(),
+          email: data.email.trim(),
           documento: data.documento?.trim() || undefined,
           telefono: data.telefono?.trim() || undefined,
           oficio: oficioFinal,
@@ -223,6 +226,22 @@ export function TrabajadorForm({ modo, trabajador, onGuardado }) {
             <p className="text-xs text-destructive">{formState.errors.nombre.message}</p>
           )}
         </div>
+
+        {isCrear && (
+          <div className="space-y-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="trabajador@cuadrilla.com"
+              {...register("email")}
+              aria-invalid={!!formState.errors.email}
+            />
+            {formState.errors.email && (
+              <p className="text-xs text-destructive">{formState.errors.email.message}</p>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">

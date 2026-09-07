@@ -225,7 +225,11 @@ const router = createBrowserRouter([
         <NotFound />
       </Suspense>),
   },
-]);
+  // Silencia el warning de React Router sobre v7_startTransition.
+  // Cuando subamos a v7, podemos quitar esta flag.
+],
+{ future: { v7_startTransition: true } },
+);
 
 const App = () => (<ErrorBoundary>
     <ThemeProvider>

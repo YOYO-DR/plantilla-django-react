@@ -201,7 +201,7 @@ export default function DetalleTrabajador() {
 
       {/* Pestañas */}
       <Tabs value={tab} onValueChange={(v) => setTab(v)} className="space-y-4">
-        <TabsList className="flex h-auto w-full justify-start overflow-x-auto">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="resumen" className="min-h-tap">Resumen</TabsTrigger>
           <TabsTrigger value="jornadas" className="min-h-tap">Jornadas</TabsTrigger>
           <TabsTrigger value="deuda" className="min-h-tap">Deuda</TabsTrigger>

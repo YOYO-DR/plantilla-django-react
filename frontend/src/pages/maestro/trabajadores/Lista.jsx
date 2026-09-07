@@ -1,10 +1,16 @@
 // Listado de trabajadores del maestro con búsqueda, filtros y orden.
 // Tabla en escritorio, tarjetas en móvil.
+//
+// F8: tarifa y deuda vienen de hooks contra el backend (no del
+// normalizador legacy). "Oficio" se quita porque el backend actual no
+// expone ese campo — antes mostrábamos "" siempre, que era peor que no
+// mostrar nada.
 
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useData } from "@/context/DataContext";
-import { saldoDeuda } from "@/lib/calculo";
+import { useWorkerRates } from "@/lib/useWorkerRates";
+import { useWorkersBalances } from "@/lib/useWorkersBalances";
 import { formatCOP } from "@/lib/format";
 import {
   ArrowUpDown,
@@ -39,45 +45,31 @@ import { AvatarIniciales } from "@/components/shared/AvatarIniciales";
 import { TrabajadorFormDialog } from "@/components/Maestro/TrabajadorFormDialog";
 
 export default function ListaTrabajadores() {
-  const { trabajadores, movimientos, todosLosUsuarios } = useData();
+  const { trabajadores, todosLosUsuarios } = useData();
   const navigate = useNavigate();
 
   const [busqueda, setBusqueda] = useState("");
-  const [oficio, setOficio] = useState("todos");
   const [estado, setEstado] = useState("activo");
   const [orden, setOrden] = useState("nombre");
   const [dialogAbierto, setDialogAbierto] = useState(false);
 
-  // Usuarios por id para mostrar el username de acceso en la tabla
+  const idsTrabajadores = useMemo(
+    () => trabajadores.map((t) => t.id),
+    [trabajadores],
+  );
+  const { rates: ratesPorId } = useWorkerRates(idsTrabajadores);
+  const { balances: balancesPorId } = useWorkersBalances(idsTrabajadores);
+
   const usuariosPorId = useMemo(() => {
     const m = new Map();
     for (const u of todosLosUsuarios) m.set(u.id, u);
     return m;
   }, [todosLosUsuarios]);
 
-  // Saldos por trabajador (calculados desde movimientos)
-  const saldosPorId = useMemo(() => {
-    const m = new Map();
-    for (const t of trabajadores) {
-      const movs = movimientos.filter((mv) => mv.trabajadorId === t.id);
-      m.set(t.id, Math.max(0, saldoDeuda(movs)));
-    }
-    return m;
-  }, [trabajadores, movimientos]);
-
-  // Oficios únicos (derivados de los datos)
-  const oficios = useMemo(() => {
-    const set = new Set();
-    for (const t of trabajadores) set.add(t.oficio);
-    return Array.from(set).sort();
-  }, [trabajadores]);
-
-  // Filtrado + ordenado
   const filtrados = useMemo(() => {
     const busq = busqueda.trim().toLowerCase();
     let lista = trabajadores.filter((t) => {
       if (estado !== "todos" && t.estado !== estado) return false;
-      if (oficio !== "todos" && t.oficio !== oficio) return false;
       if (busq) {
         const u = usuariosPorId.get(t.usuarioId);
         const texto = `${t.nombre} ${t.documento ?? ""} ${u?.usuario ?? ""}`.toLowerCase();
@@ -88,26 +80,27 @@ export default function ListaTrabajadores() {
 
     lista = lista.sort((a, b) => {
       if (orden === "nombre") return a.nombre.localeCompare(b.nombre, "es");
-      if (orden === "tarifa-asc") return a.tarifaDiaBase - b.tarifaDiaBase;
-      if (orden === "tarifa-desc") return b.tarifaDiaBase - a.tarifaDiaBase;
-      const sa = saldosPorId.get(a.id) ?? 0;
-      const sb = saldosPorId.get(b.id) ?? 0;
+      if (orden === "tarifa-asc")
+        return (Number(ratesPorId[a.id]?.amount) || 0) - (Number(ratesPorId[b.id]?.amount) || 0);
+      if (orden === "tarifa-desc")
+        return (Number(ratesPorId[b.id]?.amount) || 0) - (Number(ratesPorId[a.id]?.amount) || 0);
+      const sa = Number(balancesPorId[a.id]?.saldo_prestamos) || 0;
+      const sb = Number(balancesPorId[b.id]?.saldo_prestamos) || 0;
       return sb - sa;
     });
 
     return lista;
-  }, [trabajadores, busqueda, oficio, estado, orden, usuariosPorId, saldosPorId]);
+  }, [trabajadores, busqueda, estado, orden, usuariosPorId, ratesPorId, balancesPorId]);
 
   const totalActivos = trabajadores.filter((t) => t.estado === "activo").length;
   const totalInactivos = trabajadores.filter((t) => t.estado === "inactivo").length;
 
   const limpiarFiltros = () => {
     setBusqueda("");
-    setOficio("todos");
     setEstado("activo");
   };
 
-  const hayFiltros = busqueda !== "" || oficio !== "todos" || estado !== "activo";
+  const hayFiltros = busqueda !== "" || estado !== "activo";
 
   return (
     <div className="space-y-6">
@@ -128,7 +121,7 @@ export default function ListaTrabajadores() {
 
       {/* Filtros */}
       <Card>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -138,19 +131,6 @@ export default function ListaTrabajadores() {
               className="pl-9"
             />
           </div>
-          <Select value={oficio} onValueChange={setOficio}>
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Oficio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los oficios</SelectItem>
-              {oficios.map((o) => (
-                <SelectItem key={o} value={o}>
-                  {o}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={estado} onValueChange={(v) => setEstado(v)}>
             <SelectTrigger className="w-full sm:w-36">
               <SelectValue />
@@ -207,7 +187,6 @@ export default function ListaTrabajadores() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Trabajador</TableHead>
-                  <TableHead>Oficio</TableHead>
                   <TableHead className="text-right">Tarifa día</TableHead>
                   <TableHead className="text-right">Deuda</TableHead>
                   <TableHead>Estado</TableHead>
@@ -220,7 +199,8 @@ export default function ListaTrabajadores() {
                     key={t.id}
                     t={t}
                     usuario={usuariosPorId.get(t.usuarioId)}
-                    deuda={saldosPorId.get(t.id) ?? 0}
+                    rate={ratesPorId[t.id]}
+                    deudaCents={balancesPorId[t.id]?.saldo_prestamos}
                     onClick={() => navigate(`/app/maestro/trabajadores/${t.id}`)}
                   />
                 ))}
@@ -235,7 +215,8 @@ export default function ListaTrabajadores() {
                 key={t.id}
                 t={t}
                 usuario={usuariosPorId.get(t.usuarioId)}
-                deuda={saldosPorId.get(t.id) ?? 0}
+                rate={ratesPorId[t.id]}
+                deudaCents={balancesPorId[t.id]?.saldo_prestamos}
                 onClick={() => navigate(`/app/maestro/trabajadores/${t.id}`)}
               />
             ))}
@@ -252,14 +233,8 @@ export default function ListaTrabajadores() {
   );
 }
 
-// ---------------------------------------------------------------------------
-
-function FilaTabla({
-  t,
-  usuario,
-  deuda,
-  onClick,
-}) {
+function FilaTabla({ t, usuario, rate, deudaCents, onClick }) {
+  const tarifaStr = rate?.amount;
   return (
     <TableRow
       className="cursor-pointer"
@@ -283,11 +258,14 @@ function FilaTabla({
           </div>
         </div>
       </TableCell>
-      <TableCell>{t.oficio}</TableCell>
-      <TableCell className="text-right num">{formatCOP(t.tarifaDiaBase)}</TableCell>
+      <TableCell className="text-right num">
+        {tarifaStr ? formatCOP(tarifaStr) : <span className="text-muted-foreground">—</span>}
+      </TableCell>
       <TableCell className="text-right">
-        {deuda > 0 ? (
-          <span className="font-semibold text-destructive num">{formatCOP(deuda)}</span>
+        {Number(deudaCents) > 0 ? (
+          <span className="font-semibold text-destructive num">
+            {formatCOP(deudaCents)}
+          </span>
         ) : (
           <span className="text-muted-foreground">$ 0</span>
         )}
@@ -307,12 +285,8 @@ function FilaTabla({
   );
 }
 
-function TarjetaTrabajador({
-  t,
-  usuario,
-  deuda,
-  onClick,
-}) {
+function TarjetaTrabajador({ t, usuario, rate, deudaCents, onClick }) {
+  const tarifaStr = rate?.amount;
   return (
     <Link
       to="#"
@@ -332,7 +306,9 @@ function TarjetaTrabajador({
               </Badge>
             </div>
             <p className="truncate text-xs text-muted-foreground">
-              {t.oficio} · <span className="num">{formatCOP(t.tarifaDiaBase)}</span>/día
+              <span className="num">
+                {tarifaStr ? `${formatCOP(tarifaStr)}/día` : "Sin tarifa"}
+              </span>
               {usuario && (
                 <>
                   {" · "}
@@ -340,12 +316,14 @@ function TarjetaTrabajador({
                 </>
               )}
             </p>
-            {deuda > 0 && (
+            {Number(deudaCents) > 0 ? (
               <p className="mt-0.5 text-xs">
                 Deuda:{" "}
-                <span className="font-semibold text-destructive num">{formatCOP(deuda)}</span>
+                <span className="font-semibold text-destructive num">
+                  {formatCOP(deudaCents)}
+                </span>
               </p>
-            )}
+            ) : null}
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </CardContent>

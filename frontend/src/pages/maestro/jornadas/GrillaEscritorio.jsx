@@ -35,16 +35,23 @@ export function GrillaEscritorio({
   const [confirmando, setConfirmando] = useState(null);
   const [popoverCell, setPopoverCell] = useState(null);
 
-  const jornadaEn = (tId, fecha) =>
-    jornadas.find((j) => j.trabajadorId === tId && j.fecha === fecha) ?? null;
+  // Un trabajador puede tener varias jornadas el mismo día (por ejemplo dos
+  // medios días). `jornadaEn` devuelve la primera, que es la que la celda
+  // pinta y edita; `jornadasEn` las devuelve todas, que es lo que hay que
+  // sumar para que el total del día cuadre con el total de la fila.
+  const jornadasEn = (tId, fecha) =>
+    jornadas.filter((j) => j.trabajadorId === tId && j.fecha === fecha);
+
+  const jornadaEn = (tId, fecha) => jornadasEn(tId, fecha)[0] ?? null;
 
   // Totales por día: suma de valor de la jornada (incluye liquidadas, refleja
   // el trabajo real hecho)
   const totalesPorDia = dias.map((fecha) =>
-    trabajadores.reduce((acc, t) => {
-      const j = jornadaEn(t.id, fecha);
-      return j ? acc + valorJornada(j, t) : acc;
-    }, 0),
+    trabajadores.reduce(
+      (acc, t) =>
+        acc + jornadasEn(t.id, fecha).reduce((s, j) => s + valorJornada(j, t), 0),
+      0,
+    ),
   );
 
   const granTotal = totalesPorDia.reduce((a, b) => a + b, 0);
