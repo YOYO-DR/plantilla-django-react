@@ -64,6 +64,7 @@ import {
 import { workersService } from "@/api/workersService";
 import { catalogsService } from "@/api/catalogsService";
 import { formatCOP, formatFecha } from "@/lib/format";
+import { toCents, fromCents } from "@/lib/cents";
 import { numeroMiles, parseMiles } from "@/lib/usuarios";
 import { useMediaQuery } from "@/components/shared/useMediaQuery";
 
@@ -561,11 +562,36 @@ export function AsistenteLiquidacion({
                 {formatCOP(preview?.total_abonos_prestamos)}
               </span>
             </div>
-            <div className="flex justify-between border-t pt-2 text-base">
-              <strong>A pagar</strong>
-              <strong className="num text-primary">
-                {formatCOP(preview?.total_amount)}
+            <div className="flex justify-between border-t pt-3 text-base">
+              <div>
+                <strong>Entregar en efectivo</strong>
+                <p className="text-xs text-muted-foreground">
+                  Lo que el maestro cuenta en mano
+                </p>
+              </div>
+              <strong className="num text-primary text-2xl">
+                {(() => {
+                  // F8: el neto a entregar = subtotal_workdays −
+                  // total_abonos_prestamos. El total_amount del backend
+                  // es BRUTO (jornadas + abonos), NO lo que se entrega.
+                  // Calculamos en centavos via cents.js para evitar
+                  // drift de FP.
+                  const sub = preview?.subtotal_workdays;
+                  const abonos = preview?.total_abonos_prestamos;
+                  if (sub == null) return "—";
+                  return formatCOP(
+                    fromCents(
+                      toCents(sub) - toCents(abonos ?? "0"),
+                    ),
+                  );
+                })()}
               </strong>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Total del comprobante</span>
+              <span className="num">
+                {formatCOP(preview?.total_amount)}
+              </span>
             </div>
           </div>
 
@@ -649,53 +675,22 @@ export function AsistenteLiquidacion({
           </Button>
         ) : (
           <Button
-            onClick={() => setConfirmar(true)}
+            onClick={() => {
+              // F8: el AlertDialog de doble confirmación anidado en el
+              // Dialog del wizard no montaba correctamente (problema
+              // conocido de Radix Portal con diálogos anidados). Vamos
+              // directos: el botón del paso 3 dispara la mutación. El
+              // wizard ya cierra por sí solo en confirmarPago().
+              confirmarPago();
+            }}
             disabled={!preview || registerMut.isPending}
             className="min-h-tap"
             variant="default"
           >
-            Confirmar pago
+            {registerMut.isPending ? "Registrando…" : "Confirmar pago"}
           </Button>
         )}
       </div>
-
-      {/* Confirmación final */}
-      <AlertDialog open={confirmar} onOpenChange={setConfirmar}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Confirmar esta liquidación?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Al confirmar, las{" "}
-              <strong>{selectedWorkdayIds.size} jornadas</strong> marcadas
-              quedarán bloqueadas
-              {preview?.total_abonos_prestamos &&
-              parseFloat(preview.total_abonos_prestamos) > 0 ? (
-                <>
-                  {" "}
-                  y se abonará{" "}
-                  <strong className="num">
-                    {formatCOP(preview.total_abonos_prestamos)}
-                  </strong>{" "}
-                  a préstamos
-                </>
-              ) : null}
-              . El comprobante será inmutable. Esta acción no se puede
-              deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={registerMut.isPending}>
-              Volver
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmarPago}
-              disabled={registerMut.isPending}
-            >
-              {registerMut.isPending ? "Registrando…" : "Sí, liquidar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 

@@ -30,17 +30,23 @@ export function formatCOP(n) {
   return fmtCOP.format(Math.round(v));
 }
 
-/** Variante numérica sin símbolo: 85000 -> "85.000". */
+/** Variante numérica sin símbolo: 85000 -> "85.000".
+ *  Acepta strings del backend (Decimal como "85000.00") además de numbers.
+ */
 export function formatNumero(n) {
-  if (!Number.isFinite(n)) return "0";
-  return fmtCOPNumber.format(Math.round(n));
+  const v = typeof n === "string" ? Number(n) : n;
+  if (!Number.isFinite(v)) return "0";
+  return fmtCOPNumber.format(Math.round(v));
 }
 
-/** Forma compacta para KPIs y tarjetas: 85000000 -> "$ 85 M". */
+/** Forma compacta para KPIs y tarjetas: 85000000 -> "$ 85 M".
+ *  Acepta strings del backend.
+ */
 export function formatCOPCorto(n) {
-  if (!Number.isFinite(n) || n === 0) return "$ 0";
+  const v = typeof n === "string" ? Number(n) : n;
+  if (!Number.isFinite(v) || v === 0) return "$ 0";
   // Se compone con prefijo "$ " + número compacto en es-CO.
-  return `$ ${fmtCOPCompact.format(n)}`;
+  return `$ ${fmtCOPCompact.format(v)}`;
 }
 
 /** Formato corto de fecha dd/MM/yyyy por defecto. Acepta patron custom de date-fns. */
