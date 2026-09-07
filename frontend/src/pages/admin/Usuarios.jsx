@@ -74,7 +74,7 @@ export default function AdminUsuarios() {
           if (!texto.includes(busq)) return false;
         }
         if (rol !== "todos" && u.rol !== rol) return false;
-        if (tenantId !== "todos" && u.tenantId !== tenantId) return false;
+        if (tenantId !== "todos" && String(u.tenantId) !== tenantId) return false;
         if (estado !== "todos" && u.estado !== estado) return false;
         return true;
       })

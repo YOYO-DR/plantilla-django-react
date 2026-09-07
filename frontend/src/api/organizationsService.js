@@ -32,9 +32,22 @@ async function request(path, options = {}) {
   return resp.json();
 }
 
+// Normaliza el id a string para evitar `t.id === id` falso cuando id
+// viene de useParams (string) y el backend devuelve int.
+function _normalizeOrg(t) {
+  return { ...t, id: String(t.id) };
+}
+
+function _unwrapPaginated(data) {
+  if (Array.isArray(data)) return data.map(_normalizeOrg);
+  if (data && Array.isArray(data.results))
+    return data.results.map(_normalizeOrg);
+  return [];
+}
+
 export const organizationsService = {
-  list: () => request("/organizations/"),
-  get: (id) => request(`/organizations/${id}/`),
+  list: () => request("/organizations/").then(_unwrapPaginated),
+  get: (id) => request(`/organizations/${id}/`).then(_normalizeOrg),
   me: async () => {
     const me = await request("/auth/me/");
     if (!me.organization_id) return null;

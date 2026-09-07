@@ -66,7 +66,7 @@ export default function TrabajadorPagos() {
     );
   }
 
-  const lista = (paymentsQ.data ?? []).slice().sort((a, b) =>
+  const lista = (Array.isArray(paymentsQ.data) ? paymentsQ.data : paymentsQ.data?.results ?? []).slice().sort((a, b) =>
     a.payment_date < b.payment_date ? 1 : -1,
   );
 

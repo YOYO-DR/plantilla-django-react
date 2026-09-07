@@ -1,13 +1,9 @@
-// DataContext — Fase D1: TanStack Query como fuente de verdad.
+// DataContext — TanStack Query como fuente de verdad.
 //
-// Una query por recurso con su ``queryKey``. Las mutaciones que tienen
-// endpoint backend invalidan solo lo afectado. Las que aún no están
-// cableadas en D1 siguen como ``noop`` documentadas en el reporte
-// (quedan para D2).
-//
-// API pública preservada: useData() sigue devolviendo
-// {trabajadores, jornadas, movimientos, liquidaciones,
-//  todosLosTenants, todosLosUsuarios, cargando, error, recargar, ...mutaciones}.
+// Fase D: queries por recurso con su queryKey + mutaciones que llaman al
+// backend. Las queries a endpoints eliminados en Fase A (movimientos-deuda,
+// liquidaciones, tipos-movimiento-deuda) ya no se disparan; los datos
+// respectivos vienen ahora de las queries de loans/payments/workdays.
 
 import {
   createContext,
@@ -18,9 +14,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { workersService } from "@/api/workersService";
 import { workdaysService } from "@/api/workdaysService";
-import { movementsService } from "@/api/movementsService";
-import { liquidacionesService } from "@/api/liquidacionesService";
-import { catalogsService } from "@/api/catalogsService";
+import { loansService } from "@/api/loansService";
+import { paymentsService } from "@/api/paymentsService";
 import { organizationsService } from "@/api/organizationsService";
 import { usersService } from "@/api/usersService";
 import { useAuthStore } from "@/store/authStore";
@@ -31,9 +26,8 @@ const DataContext = createContext(null);
 const QK = {
   workers: ["workers"],
   workdays: (params) => ["workdays", params ?? {}],
-  movements: ["movements"],
-  liquidaciones: ["liquidaciones"],
-  catalogs: ["catalogs"],
+  loans: ["loans"],
+  payments: ["payments"],
   organizations: ["organizations"],
   users: ["users"],
   balance: (workerId) => ["balance", workerId],
@@ -46,38 +40,43 @@ function _unwrap(q) {
   return [];
 }
 
+// Roles que consumen datos de la organización completa (no solo los suyos).
+function _esMaestroOAdmin(user) {
+  if (!user) return false;
+  const groups = user.groups ?? [];
+  return groups.includes("Maestro") || groups.includes("AdminPlataforma");
+}
+
 export function DataProvider({ children }) {
   const qc = useQueryClient();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.is_staff === true && !user?.organization_id;
+  const maestroOAdmin = _esMaestroOAdmin(user);
 
   // ---- Queries por recurso -----------------------------------------
 
+  // Workers: solo el maestro/admin ve la lista completa. El trabajador
+  // ve solo su propio balance vía /api/workers/{id}/balance/.
   const workersQ = useQuery({
     queryKey: QK.workers,
     queryFn: () => workersService.list(),
-    enabled: !!accessToken,
+    enabled: !!accessToken && maestroOAdmin,
   });
   const workdaysQ = useQuery({
     queryKey: QK.workdays(),
     queryFn: () => workdaysService.list(),
-    enabled: !!accessToken,
+    enabled: !!accessToken && maestroOAdmin,
   });
-  const movementsQ = useQuery({
-    queryKey: QK.movements,
-    queryFn: () => movementsService.list(),
-    enabled: !!accessToken,
+  const loansQ = useQuery({
+    queryKey: QK.loans,
+    queryFn: () => loansService.list(),
+    enabled: !!accessToken && maestroOAdmin,
   });
-  const liquidacionesQ = useQuery({
-    queryKey: QK.liquidaciones,
-    queryFn: () => liquidacionesService.list(),
-    enabled: !!accessToken,
-  });
-  const catalogsQ = useQuery({
-    queryKey: QK.catalogs,
-    queryFn: () => catalogsService.getAll(),
-    enabled: !!accessToken,
+  const paymentsQ = useQuery({
+    queryKey: QK.payments,
+    queryFn: () => paymentsService.list(),
+    enabled: !!accessToken && maestroOAdmin,
   });
   const organizationsQ = useQuery({
     queryKey: QK.organizations,
@@ -133,6 +132,46 @@ export function DataProvider({ children }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: QK.workdays() }),
   });
 
+  // F8: upsert y eliminar jornadas concretas (no bulk).
+  // La grilla semanal usa upsertJornada cuando el maestro marca una celda;
+  // eliminarJornada cuando la desmarca. Invalida workdays (lista) y
+  // balance (lo que el trabajador tiene por cobrar).
+  //
+  // Transformamos del shape legacy que usa la grilla ({trabajadorId,
+  // fecha, tipo}) al shape que espera el backend ({worker,
+  // workday_type_id, date}). Si ya llega con `worker`, se pasa tal cual.
+  const _tipoToWorkdayTypeId = {
+    completo: 1, // Día completo (catálogo seed)
+    medio: 2, // Medio día (catálogo seed)
+  };
+  const upsertJornadaMut = useMutation({
+    mutationFn: (data) => {
+      if (data.worker) return workdaysService.create(data); // ya en shape nuevo
+      const body = {
+        worker: data.trabajadorId,
+        // El backend (RegisterPaymentSerializer/workdays create) espera
+        // `workday_type` (no `workday_type_id`).
+        workday_type: _tipoToWorkdayTypeId[data.tipo],
+        date: data.fecha,
+        applied_rate: data.tarifaOverride ?? undefined,
+        notes: data.notas ?? "",
+      };
+      return workdaysService.create(body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK.workdays() });
+      qc.invalidateQueries({ queryKey: ["balance"] });
+    },
+  });
+
+  const eliminarJornadaMut = useMutation({
+    mutationFn: (id) => workdaysService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK.workdays() });
+      qc.invalidateQueries({ queryKey: ["balance"] });
+    },
+  });
+
   // ---- Mutaciones admin (F2) --------------------------------------
 
   const crearTenantMut = useMutation({
@@ -168,34 +207,44 @@ export function DataProvider({ children }) {
 
   // ---- Composición del value público -------------------------------
 
+  // `movimientos` y `liquidaciones` se mantenían en el value público para no
+  // romper consumidores legacy que aún las piden. Las queries a los
+  // endpoints eliminados en Fase A ya no se disparan (H3); devolvemos []
+  // estable en su lugar.
+  const movimientosLegacy = [];
+  const liquidacionesLegacy = [];
+
   const value = useMemo(
     () => ({
       // estado (queries)
       trabajadores: _unwrap(workersQ),
       jornadas: _unwrap(workdaysQ),
-      movimientos: _unwrap(movementsQ),
-      liquidaciones: _unwrap(liquidacionesQ),
+      prestamos: _unwrap(loansQ),
+      pagos: _unwrap(paymentsQ),
+      movimientos: movimientosLegacy,
+      liquidaciones: liquidacionesLegacy,
       todosLosTenants: _unwrap(organizationsQ),
       todosLosUsuarios: _unwrap(usersQ),
       // flags
       cargando:
         workersQ.isLoading ||
         workdaysQ.isLoading ||
-        movementsQ.isLoading ||
-        liquidacionesQ.isLoading,
+        loansQ.isLoading ||
+        paymentsQ.isLoading,
       error:
         workersQ.error ||
         workdaysQ.error ||
-        movementsQ.error ||
-        liquidacionesQ.error,
+        loansQ.error ||
+        paymentsQ.error,
       // rol
       esAdminPlataforma: isAdmin,
       // refetch manual
       recargar: () => {
         qc.invalidateQueries({ queryKey: QK.workers });
         qc.invalidateQueries({ queryKey: QK.workdays() });
-        qc.invalidateQueries({ queryKey: QK.movements });
-        qc.invalidateQueries({ queryKey: QK.liquidaciones });
+        qc.invalidateQueries({ queryKey: QK.loans });
+        qc.invalidateQueries({ queryKey: QK.payments });
+        qc.invalidateQueries({ queryKey: ["balance"] });
       },
       // mutaciones cableadas en D1
       crearTrabajador: (data) => crearTrabajadorMut.mutateAsync(data),
@@ -209,6 +258,8 @@ export function DataProvider({ children }) {
       marcarDiaCompletoParaTodos: (data) => bulkMarkMut.mutateAsync(data),
       repetirSemanaAnterior: (data) => bulkCopyMut.mutateAsync(data),
       limpiarSemana: (data) => bulkClearMut.mutateAsync(data),
+      upsertJornada: (data) => upsertJornadaMut.mutateAsync(data),
+      eliminarJornada: (id) => eliminarJornadaMut.mutateAsync(id),
       // mutaciones admin (F2) — solo el admin plataforma debería llamarlas.
       crearTenant: (data) => crearTenantMut.mutateAsync(data),
       actualizarTenant: (id, data) =>
@@ -225,8 +276,8 @@ export function DataProvider({ children }) {
     [
       workersQ,
       workdaysQ,
-      movementsQ,
-      liquidacionesQ,
+      loansQ,
+      paymentsQ,
       organizationsQ,
       usersQ,
       isAdmin,
@@ -238,6 +289,8 @@ export function DataProvider({ children }) {
       bulkMarkMut,
       bulkCopyMut,
       bulkClearMut,
+      upsertJornadaMut,
+      eliminarJornadaMut,
       crearTenantMut,
       actualizarTenantMut,
       suspenderTenantMut,

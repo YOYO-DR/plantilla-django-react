@@ -36,6 +36,7 @@ import {
 } from "@/lib/fechas";
 
 import { HistorialPagos } from "./HistorialPagos";
+import { BotonLiquidarTrabajador } from "@/components/Maestro/BotonLiquidarTrabajador";
 import { Link } from "react-router-dom";
 
 export default function MaestroPagos() {
@@ -232,16 +233,19 @@ export default function MaestroPagos() {
                       <p className="display text-base font-bold num text-primary">
                         {formatCOP(c.estimadoAPagar)}
                       </p>
-                      <Button
-                        asChild
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-xs"
-                      >
-                        <Link to={`/app/maestro/trabajadores/${c.t.id}`}>
-                          Ver detalle
-                        </Link>
-                      </Button>
+                      <div className="mt-1 flex items-center justify-end gap-2">
+                        <Button
+                          asChild
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs"
+                        >
+                          <Link to={`/app/maestro/trabajadores/${c.t.id}`}>
+                            Ver detalle
+                          </Link>
+                        </Button>
+                        <BotonLiquidarTrabajador trabajador={c.t} variant="default" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

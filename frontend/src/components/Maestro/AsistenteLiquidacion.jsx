@@ -101,6 +101,11 @@ export function AsistenteLiquidacion({
     queryFn: () => workersService.balance(trabajador.id),
     enabled: open && !!trabajador?.id,
     retry: false,
+    // staleTime: 0 fuerza refetch cada vez que el query se vuelve a
+    // habilitar (al abrir el wizard). Necesario porque el componente
+    // nunca se desmonta — solo cambia `open` — y refetchOnMount no
+    // se activa en ese caso.
+    staleTime: 0,
   });
 
   // Catálogo de métodos de pago (para el <select> del paso 3).

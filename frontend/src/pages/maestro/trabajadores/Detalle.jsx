@@ -41,6 +41,7 @@ import {
 import { useData } from "@/context/DataContext";
 import { AvatarIniciales } from "@/components/shared/AvatarIniciales";
 import { TrabajadorFormDialog } from "@/components/Maestro/TrabajadorFormDialog";
+import { BotonLiquidarTrabajador } from "@/components/Maestro/BotonLiquidarTrabajador";
 import { formatCOP, formatFechaLarga } from "@/lib/format";
 
 import { ResumenTab } from "./ResumenTab";
@@ -151,6 +152,7 @@ export default function DetalleTrabajador() {
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <BotonLiquidarTrabajador trabajador={trabajador} />
             <Button variant="outline" className="min-h-tap" onClick={() => setDialogEditar(true)}>
               <Pencil className="mr-2 h-4 w-4" /> Editar
             </Button>

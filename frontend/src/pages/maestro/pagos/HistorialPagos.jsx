@@ -123,7 +123,8 @@ export function HistorialPagos() {
   }, [trabajadores]);
 
   const filtrados = useMemo(() => {
-    const lista = paymentsQ.data ?? [];
+    const raw = paymentsQ.data;
+    const lista = Array.isArray(raw) ? raw : raw?.results ?? [];
     return lista
       .filter((p) => {
         if (fTrabajador !== "todos" && p.worker !== Number(fTrabajador)) return false;

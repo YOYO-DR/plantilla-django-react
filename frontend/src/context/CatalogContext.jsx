@@ -8,7 +8,6 @@ export function CatalogProvider({ children }) {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [workdayTypes, setWorkdayTypes] = useState([]);
   const [paymentStatuses, setPaymentStatuses] = useState([]);
-  const [tiposMovimiento, setTiposMovimiento] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -23,14 +22,12 @@ export function CatalogProvider({ children }) {
     Promise.all([
       catalogsService.workdayTypes(),
       catalogsService.paymentStatuses(),
-      catalogsService.tiposMovimientoDeuda(),
       catalogsService.paymentMethods(),
     ])
-      .then(([w, p, t, m]) => {
+      .then(([w, p, m]) => {
         if (!active) return;
         setWorkdayTypes(w);
         setPaymentStatuses(p);
-        setTiposMovimiento(t);
         setPaymentMethods(m);
       })
       .finally(() => active && setLoading(false));
@@ -44,7 +41,6 @@ export function CatalogProvider({ children }) {
       value={{
         workdayTypes,
         paymentStatuses,
-        tiposMovimiento,
         paymentMethods,
         loading,
         findWorkdayTypeByName: (n) => workdayTypes.find((w) => w.name === n),

@@ -21,10 +21,13 @@ const fmtCOPCompact = new Intl.NumberFormat("es-CO",{
   maximumFractionDigits: 1,
 });
 
-/** Formatea un número entero como peso colombiano: 85000 -> "$ 85.000". */
+/** Formatea un número o string Decimal como peso colombiano: 85000 -> "$ 85.000".
+ *  Acepta strings del backend (Decimal como "85000.00") además de numbers.
+ */
 export function formatCOP(n) {
-  if (!Number.isFinite(n)) return "$ 0";
-  return fmtCOP.format(Math.round(n));
+  const v = typeof n === "string" ? Number(n) : n;
+  if (!Number.isFinite(v)) return "$ 0";
+  return fmtCOP.format(Math.round(v));
 }
 
 /** Variante numérica sin símbolo: 85000 -> "85.000". */
